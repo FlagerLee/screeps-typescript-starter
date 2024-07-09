@@ -50,12 +50,15 @@ export const loop = ErrorMapper.wrapLoop(() => {
         delete Memory.creeps[name];
       }
     }
-
-    const controller = createController({
-      log: _log,
-      warn: _warn,
-      err: _err
-    });
-    controller.run();
+    try {
+      const controller = createController({
+        log: _log,
+        warn: _warn,
+        err: _err
+      });
+      controller.run();
+    } catch (e) {
+      _err((e as Error).message);
+    }
   }
 });

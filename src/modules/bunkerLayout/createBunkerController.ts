@@ -377,44 +377,47 @@ export function createBunkerController(context: BunkerControllerContext) {
         }
       }
       // set extractor
-      const mineral = room.find(FIND_MINERALS)[0];
-      const extractorPos = mineral.pos;
-      level6Layout.set(STRUCTURE_EXTRACTOR, [extractorPos] as RoomPosition[]);
-      // find road to mineral
-      const mineralRoad = [] as RoomPosition[];
-      let minDistance = 10000;
-      let resPos = centralPos;
-      for (const pos of surroundingRoad) {
-        const idx = pos.x * 50 + pos.y;
-        const dist = mineralDist[idx];
-        if (dist < minDistance) {
-          minDistance = dist;
-          resPos = pos;
+      const minerals = room.find(FIND_MINERALS);
+      if (minerals.length > 0) {
+        const mineral = minerals[0];
+        const extractorPos = mineral.pos;
+        level6Layout.set(STRUCTURE_EXTRACTOR, [extractorPos] as RoomPosition[]);
+        // find road to mineral
+        const mineralRoad = [] as RoomPosition[];
+        let minDistance = 10000;
+        let resPos = centralPos;
+        for (const pos of surroundingRoad) {
+          const idx = pos.x * 50 + pos.y;
+          const dist = mineralDist[idx];
+          if (dist < minDistance) {
+            minDistance = dist;
+            resPos = pos;
+          }
         }
-      }
-      // start from resPos
-      const paths = room.findPath(resPos, mineral.pos, {
-        ignoreCreeps: true
-      });
-      for (const step of paths) {
-        const pos = room.getPositionAt(step.x, step.y);
-        if (surroundingRoad.has(pos!)) continue;
-        surroundingRoad.add(pos!);
-        mineralRoad.push(pos!);
-        visitBase[pos!.x * 50 + pos!.y] = true;
-      }
-      level6Layout.set(STRUCTURE_ROAD, mineralRoad);
-      // set container
-      for (let i = 0; i < 8; i++) {
-        const cX = extractorPos.x + dx[i];
-        const cY = extractorPos.y + dy[i];
-        const idx = cX * 50 + cY;
-        if (!visitBase[idx]) {
-          visitBase[idx] = true;
-          const pos = room.getPositionAt(cX, cY);
-          level6Layout.set(STRUCTURE_CONTAINER, [pos] as RoomPosition[]);
-          room.memory.boundMap.set(mineral, pos!);
-          break;
+        // start from resPos
+        const paths = room.findPath(resPos, mineral.pos, {
+          ignoreCreeps: true
+        });
+        for (const step of paths) {
+          const pos = room.getPositionAt(step.x, step.y);
+          if (surroundingRoad.has(pos!)) continue;
+          surroundingRoad.add(pos!);
+          mineralRoad.push(pos!);
+          visitBase[pos!.x * 50 + pos!.y] = true;
+        }
+        level6Layout.set(STRUCTURE_ROAD, mineralRoad);
+        // set container
+        for (let i = 0; i < 8; i++) {
+          const cX = extractorPos.x + dx[i];
+          const cY = extractorPos.y + dy[i];
+          const idx = cX * 50 + cY;
+          if (!visitBase[idx]) {
+            visitBase[idx] = true;
+            const pos = room.getPositionAt(cX, cY);
+            level6Layout.set(STRUCTURE_CONTAINER, [pos] as RoomPosition[]);
+            room.memory.boundMap.set(mineral, pos!);
+            break;
+          }
         }
       }
       // set terminal
@@ -532,10 +535,10 @@ export function createBunkerController(context: BunkerControllerContext) {
     const pos: RoomPosition[] = [];
     const level1Layout = room.memory.layout[0];
     const level1Container = level1Layout.get(STRUCTURE_CONTAINER);
-    for (const container of level1Container!) pos.push(container);
+    if (!isUndefined(level1Container)) for (const container of level1Container!) pos.push(container);
     const level6Layout = room.memory.layout[5];
     const level6Container = level6Layout.get(STRUCTURE_CONTAINER);
-    for (const container of level6Container!) pos.push(container);
+    if (!isUndefined(level6Container)) for (const container of level6Container!) pos.push(container);
     return pos;
   };
   return { createLayout, createConstructionSiteByLevel, getContainerPos };
