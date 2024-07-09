@@ -180,6 +180,7 @@ export function createStructureController(context: StructureControllerContext) {
     return Game.getObjectById(mineralCache[0])!;
   };
   const run = () => {
+    context.log("Run structure controller run");
     const room = context.getRoom();
     // run spawn
     getSpawns().map(s => {

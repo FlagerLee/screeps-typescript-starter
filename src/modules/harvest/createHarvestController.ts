@@ -1,5 +1,6 @@
 export function createHarvestController(context: HarvestControllerContext): { run: () => void } {
   const run = function () {
+    context.log("Run harvest controller run");
     for (const source of context.getSources()) {
       const boundCreep = context.getPositionBoundCreeps(source.pos);
       for (const creep of boundCreep) {

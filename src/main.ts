@@ -23,15 +23,15 @@ declare global {
 
 // eslint-disable-next-line no-underscore-dangle
 function _log(message: string): void {
-  console.log(`%c${message}`, "color: green");
+  if (Memory.enableLog) console.log(`%c${message}`, "color: green");
 }
 // eslint-disable-next-line no-underscore-dangle
 function _warn(message: string): void {
-  console.log(`%c${message}`, "color: yellow");
+  if (Memory.enableLog) console.log(`%c${message}`, "color: yellow");
 }
 // eslint-disable-next-line no-underscore-dangle
 function _err(message: string): void {
-  console.log(`%c${message}`, "color: red");
+  if (Memory.enableLog) console.log(`%c${message}`, "color: red");
   Memory.stop = true;
 }
 
@@ -39,6 +39,7 @@ function _err(message: string): void {
 // This utility uses source maps to get the line numbers and file names of the original, TS source code
 export const loop = ErrorMapper.wrapLoop(() => {
   // init memory
+  if (isUndefined(Memory.enableLog)) Memory.enableLog = true;
   if (isUndefined(Memory.genLayout)) Memory.genLayout = true;
   if (isUndefined(Memory.debug)) Memory.debug = true;
   if (isUndefined(Memory.stop)) Memory.stop = false;

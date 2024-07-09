@@ -23,6 +23,7 @@ function judge(o1: queueObj, o2: queueObj) {
 
 export function createBunkerController(context: BunkerControllerContext) {
   const createLayout = (): boolean => {
+    context.log("Run bunker controller createLayout");
     const room = context.getRoom();
     if (isUndefined(room.memory.layout)) room.memory.layout = [];
     // bfs to get bunker center
@@ -517,6 +518,7 @@ export function createBunkerController(context: BunkerControllerContext) {
     return true;
   };
   const createConstructionSiteByLevel = (level: number) => {
+    context.log("Run bunker controller createConstructionSiteByLevel");
     if (level > 8 || level < 1) return;
     const map = context.getRoom().memory.layout[level - 1];
     for (const [key, value] of map) {
@@ -530,6 +532,7 @@ export function createBunkerController(context: BunkerControllerContext) {
     }
   };
   const getContainerPos = (): RoomPosition[] => {
+    context.log("Run bunker controller getContainerPos");
     const room = context.getRoom();
     if (isUndefined(room.memory.layout) || room.memory.layout.length < 8) return [];
     const pos: RoomPosition[] = [];

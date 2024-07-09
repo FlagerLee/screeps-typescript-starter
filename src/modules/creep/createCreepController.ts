@@ -24,6 +24,7 @@ const creepBoundMapping: Map<RoomPosition, Set<Creep>> = new Map();
 
 export function createCreepController(context: creepControllerContext) {
   const preprocess = () => {
+    context.log("Run creep controller preprocess");
     for (const [creepName, creep] of Object.entries(Game.creeps)) {
       // init creepRoleRoomMapping
       const room = Game.rooms[creep.memory.spawnedRoom];
@@ -55,6 +56,7 @@ export function createCreepController(context: creepControllerContext) {
   };
 
   const getCreepsByRole = (room: Room, role: string): Creep[] => {
+    context.log("Run creep controller getCreepsByRole");
     if (!creepRoleRoomMapping.has(room)) return [];
     const creepRoleMapping = creepRoleRoomMapping.get(room)!;
     if (!creepRoleMapping.has(role)) return [];
@@ -62,6 +64,7 @@ export function createCreepController(context: creepControllerContext) {
   };
 
   const getCreepNumByRole = (room: Room, role: string): number => {
+    context.log("Run creep controller getCreepNumByRole");
     if (!creepRoleRoomMapping.has(room)) return 0;
     const creepRoleMapping = creepRoleRoomMapping.get(room)!;
     if (!creepRoleMapping.has(role)) return 0;
@@ -69,6 +72,7 @@ export function createCreepController(context: creepControllerContext) {
   };
 
   const getCreepsByPosition = (pos: RoomPosition): Creep[] => {
+    context.log("Run creep controller getCreepsByPosition");
     if (creepBoundMapping.has(pos)) return Array.from(creepBoundMapping.get(pos)!);
     return [];
   };
@@ -79,6 +83,7 @@ export function createCreepController(context: creepControllerContext) {
   };
 
   const spawnCreeps = (contextFn: spawnCreepContext) => {
+    context.log("Run creep controller spawnCreeps");
     const room = contextFn.getRoom();
     // check harvest creep
     {

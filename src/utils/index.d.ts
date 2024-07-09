@@ -2,6 +2,7 @@ interface Memory {
   genLayout: boolean;
   debug: boolean;
   stop: boolean;
+  enableLog: boolean;
 }
 
 interface CreepMemory {

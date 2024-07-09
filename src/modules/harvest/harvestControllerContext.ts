@@ -5,4 +5,6 @@ interface HarvestControllerContext {
 
   getPositionBoundCreeps: (containerPos: RoomPosition) => Creep[];
   eliminateCreep: (creep: Creep) => void;
+
+  log: (message: string) => void;
 }
