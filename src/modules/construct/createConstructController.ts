@@ -1,13 +1,13 @@
+import { CONSTRUCT_CREEP_STATE, creepConfig } from "../creepConfig";
 import { isNull, isUndefined } from "lodash";
 
 export function createConstructController(context: ConstructControllerContext): { run: () => void } {
   const run = function () {
-    context.log("Run construct controller run");
     const chebyshevDistance = (pos1: RoomPosition, pos2: RoomPosition) => {
       return Math.max(Math.abs(pos1.x - pos2.x), Math.abs(pos1.y - pos2.y));
     };
 
-    const creeps = context.getCreepsByRole(CONSTRUCT_CREEP_ROLE);
+    const creeps = context.getCreepsByRole(creepConfig.CONSTRUCT_CREEP_ROLE);
 
     const site = context.getConstructionSite();
     for (const creep of creeps) {

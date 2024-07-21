@@ -1,5 +1,15 @@
 import { PriorityQueue } from "../../utils/priorityQueue";
 import { isNull, isUndefined } from "lodash";
+import {
+  ConstructTaskToString,
+  ExpressTaskToString,
+  RepairTaskToString,
+  SpawnTaskToString,
+  StringToConstructTask,
+  StringToExpressTask,
+  StringToRepairTask,
+  StringToSpawnTask
+} from "../../utils/utils";
 
 const expressQueue = new PriorityQueue<ExpressTask>((task1: ExpressTask, task2: ExpressTask): boolean => {
   const getPriority = (task: ExpressTask): number => {
@@ -51,25 +61,29 @@ const repairQueue = new PriorityQueue<RepairTask>((task1: RepairTask, task2: Rep
   };
   return getPriority(task1) > getPriority(task2);
 });
+const expressPosterSet = new Set<string>();
+const repairPosterSet = new Set<string>();
 
 const spawningCreepRole: Map<string, number> = new Map();
 const spawningCreepPosition: Map<RoomPosition, number> = new Map();
 
 export function createTaskController(room: Room) {
   const preprocess = () => {
-    // init sets
-    if (isUndefined(room.memory.expressQueue)) room.memory.expressQueue = new Set();
-    if (isUndefined(room.memory.spawnQueue)) room.memory.spawnQueue = new Set();
-    if (isUndefined(room.memory.constructQueue)) room.memory.constructQueue = new Set();
-    if (isUndefined(room.memory.repairQueue)) room.memory.repairQueue = new Set();
-    if (isUndefined(room.memory.expressPosterSet)) room.memory.expressPosterSet = new Set();
-    if (isUndefined(room.memory.repairPosterSet)) room.memory.repairPosterSet = new Set();
+    // init
+    if (isUndefined(room.memory.expressQueue)) room.memory.expressQueue = [];
+    if (isUndefined(room.memory.spawnQueue)) room.memory.spawnQueue = [];
+    if (isUndefined(room.memory.constructQueue)) room.memory.constructQueue = [];
+    if (isUndefined(room.memory.repairQueue)) room.memory.repairQueue = [];
+    if (isUndefined(room.memory.expressPosterSet)) room.memory.expressPosterSet = [];
+    if (isUndefined(room.memory.repairPosterSet)) room.memory.repairPosterSet = [];
 
-    for (const express of room.memory.expressQueue) {
+    for (const expressStr of room.memory.expressQueue) {
+      const express = StringToExpressTask(expressStr);
       express.postTime++;
       expressQueue.push(express);
     }
-    for (const spawn of room.memory.spawnQueue) {
+    for (const spawnStr of room.memory.spawnQueue) {
+      const spawn = StringToSpawnTask(spawnStr);
       spawn.postTime++;
       spawnQueue.push(spawn);
       const role = spawn.role;
@@ -82,13 +96,21 @@ export function createTaskController(room: Room) {
         else spawningCreepPosition.set(position!, 1);
       }
     }
-    for (const construct of room.memory.constructQueue) {
+    for (const constructStr of room.memory.constructQueue) {
+      const construct = StringToConstructTask(constructStr);
       construct.postTime++;
       constructQueue.push(construct);
     }
-    for (const repair of room.memory.repairQueue) {
+    for (const repairStr of room.memory.repairQueue) {
+      const repair = StringToRepairTask(repairStr);
       repair.postTime++;
       repairQueue.push(repair);
+    }
+    for (const item of room.memory.expressPosterSet) {
+      expressPosterSet.add(item);
+    }
+    for (const item of room.memory.repairPosterSet) {
+      repairPosterSet.add(item);
     }
   };
 
@@ -99,18 +121,17 @@ export function createTaskController(room: Room) {
   const getExpressTask = () => {
     const task = expressQueue.pop();
     if (isNull(task)) return null;
-    room.memory.expressQueue.delete(task!);
     return task;
   };
 
   const addExpressTask = (task: ExpressTask) => {
-    if (room.memory.expressPosterSet.has(task.poster)) return;
+    if (expressPosterSet.has(task.poster)) return;
+    expressPosterSet.add(task.poster);
     expressQueue.push(task);
-    room.memory.expressQueue.add(task);
   };
 
   const finishExpressTask = (task: ExpressTask) => {
-    room.memory.expressPosterSet.delete(task.poster);
+    expressPosterSet.delete(task.poster);
   };
 
   const peekSpawnTask = () => {
@@ -120,13 +141,11 @@ export function createTaskController(room: Room) {
   const getSpawnTask = () => {
     const task = spawnQueue.pop();
     if (isNull(task)) return null;
-    room.memory.spawnQueue.delete(task!);
     return task;
   };
 
   const addSpawnTask = (task: SpawnTask) => {
     spawnQueue.push(task);
-    room.memory.spawnQueue.add(task);
   };
 
   const getNumCreepInSpawnQueueByRole = (role: string): number => {
@@ -140,30 +159,57 @@ export function createTaskController(room: Room) {
   const getConstructTask = () => {
     const task = constructQueue.pop();
     if (isNull(task)) return null;
-    room.memory.constructQueue.delete(task!);
     return task;
   };
 
   const addConstructTask = (task: ConstructTask) => {
     constructQueue.push(task);
-    room.memory.constructQueue.add(task);
   };
 
   const getRepairTask = () => {
     const task = repairQueue.pop();
     if (isNull(task)) return null;
-    room.memory.repairQueue.delete(task!);
     return task;
   };
 
   const addRepairTask = (task: RepairTask) => {
-    if (room.memory.repairPosterSet.has(task.structure.id)) return;
-    room.memory.repairPosterSet.add(task.structure.id);
+    if (repairPosterSet.has(task.structure.id)) return;
+    repairPosterSet.add(task.structure.id);
     repairQueue.push(task);
   };
 
   const finishRepairTask = (task: RepairTask) => {
-    room.memory.repairPosterSet.delete(task.structure.id);
+    repairPosterSet.delete(task.structure.id);
+  };
+
+  const postProcess = () => {
+    const memory = room.memory;
+
+    // create construction site
+    for (let i = 0; i < 10; i++) {
+      if (constructQueue.empty()) break;
+      const task = constructQueue.pop()!;
+      console.log(task.pos);
+      console.log(task.type);
+      console.log(room.createConstructionSite(task.pos, task.type));
+    }
+
+    // expressQueue
+    memory.expressQueue = [];
+    while (!expressQueue.empty()) memory.expressQueue.push(ExpressTaskToString(expressQueue.pop()!));
+    // spawnQueue
+    memory.spawnQueue = [];
+    while (!spawnQueue.empty()) memory.spawnQueue.push(SpawnTaskToString(spawnQueue.pop()!));
+    // constructQueue
+    memory.constructQueue = [];
+    while (!constructQueue.empty()) memory.constructQueue.push(ConstructTaskToString(constructQueue.pop()!));
+    // repairQueue
+    memory.repairQueue = [];
+    while (!repairQueue.empty()) memory.repairQueue.push(RepairTaskToString(repairQueue.pop()!));
+    // expressPosterSet
+    memory.expressPosterSet = Array.from(expressPosterSet);
+    // repairPosterSet
+    memory.repairPosterSet = Array.from(repairPosterSet);
   };
 
   return {
@@ -179,6 +225,7 @@ export function createTaskController(room: Room) {
     addConstructTask,
     getRepairTask,
     addRepairTask,
-    finishRepairTask
+    finishRepairTask,
+    postProcess
   };
 }

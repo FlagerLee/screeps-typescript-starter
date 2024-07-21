@@ -15,14 +15,22 @@ interface CreepMemory {
 
 interface RoomMemory {
   // store layout
-  layout: Map<StructureConstant, RoomPosition[]>[];
-  boundMap: Map<Structure | Source | Mineral, Structure | RoomPosition>;
-  expressQueue: Set<ExpressTask>;
-  spawnQueue: Set<SpawnTask>;
-  constructQueue: Set<ConstructTask>;
-  repairQueue: Set<RepairTask>;
-  expressPosterSet: Set<string>;
-  repairPosterSet: Set<string>;
+  layout: [string, string[]][][];
+  boundMap: [string, string][];
+  expressQueue: string[];
+  spawnQueue: string[];
+  constructQueue: string[];
+  repairQueue: string[];
+  expressPosterSet: string[];
+  repairPosterSet: string[];
+  // layout: Map<StructureConstant, RoomPosition[]>[];
+  // boundMap: Map<string, Structure | RoomPosition>;
+  // expressQueue: Set<ExpressTask>;
+  // spawnQueue: Set<SpawnTask>;
+  // constructQueue: Set<ConstructTask>;
+  // repairQueue: Set<RepairTask>;
+  // expressPosterSet: Set<string>;
+  // repairPosterSet: Set<string>;
 }
 
 interface ExpressTask {

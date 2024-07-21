@@ -1,13 +1,13 @@
+import { EXPRESS_CREEP_STATE, creepConfig } from "../creepConfig";
 import { isNull, isUndefined } from "lodash";
 
 export function createExpressController(context: ExpressControllerContext): { run: () => void } {
   const run = function () {
-    context.log("Run express controller run");
     const chebyshevDistance = (pos1: RoomPosition, pos2: RoomPosition) => {
       return Math.max(Math.abs(pos1.x - pos2.x), Math.abs(pos1.y - pos2.y));
     };
 
-    const creeps = context.getCreepsByRole(EXPRESS_CREEP_ROLE);
+    const creeps = context.getCreepsByRole(creepConfig.EXPRESS_CREEP_ROLE);
 
     for (const creep of creeps) {
       if ((creep.ticksToLive ?? 2) <= 1) {

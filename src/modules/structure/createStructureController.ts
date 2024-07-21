@@ -180,7 +180,6 @@ export function createStructureController(context: StructureControllerContext) {
     return Game.getObjectById(mineralCache[0])!;
   };
   const run = () => {
-    context.log("Run structure controller run");
     const room = context.getRoom();
     // run spawn
     getSpawns().map(s => {
@@ -219,7 +218,7 @@ export function createStructureController(context: StructureControllerContext) {
     });
     const controller = getController();
     if (!isNull(controller)) {
-      const energySource = room.memory.boundMap.get(controller!);
+      const energySource = context.getBoundMap().get(controller!.id);
       if (!isUndefined(energySource)) {
         if (energySource instanceof RoomPosition) {
           context.addExpressTask({

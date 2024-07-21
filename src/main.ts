@@ -23,15 +23,15 @@ declare global {
 
 // eslint-disable-next-line no-underscore-dangle
 function _log(message: string): void {
-  if (Memory.enableLog) console.log(`%c${message}`, "color: green");
+  if (Memory.enableLog) console.log(`<div style="color:green;">${message}</>`);
 }
 // eslint-disable-next-line no-underscore-dangle
 function _warn(message: string): void {
-  if (Memory.enableLog) console.log(`%c${message}`, "color: yellow");
+  if (Memory.enableLog) console.log(`<div style="color:yellow;">${message}</div>`);
 }
 // eslint-disable-next-line no-underscore-dangle
 function _err(message: string): void {
-  if (Memory.enableLog) console.log(`%c${message}`, "color: red");
+  if (Memory.enableLog) console.log(`<div style="color:red;">${message}</div>`);
   Memory.stop = true;
 }
 

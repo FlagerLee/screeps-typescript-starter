@@ -1,6 +1,7 @@
+import { HARVEST_CREEP_STATE, creepConfig } from "../creepConfig";
+
 export function createHarvestController(context: HarvestControllerContext): { run: () => void } {
   const run = function () {
-    context.log("Run harvest controller run");
     for (const source of context.getSources()) {
       const boundCreep = context.getPositionBoundCreeps(source.pos);
       for (const creep of boundCreep) {
@@ -16,7 +17,7 @@ export function createHarvestController(context: HarvestControllerContext): { ru
             const size = containerCreepArray.length;
             if (
               size === 1 &&
-              containerCreepArray[0].memory.role === HARVEST_CREEP_ROLE &&
+              containerCreepArray[0].memory.role === creepConfig.HARVEST_CREEP_ROLE &&
               containerCreepArray[0].memory.state === HARVEST_CREEP_STATE.STATE_SUICIDE
             ) {
               // suicide now

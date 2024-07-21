@@ -7,6 +7,7 @@ import { createExpressController } from "./express/createExpressController";
 import { createHarvestController } from "./harvest/createHarvestController";
 import { createCreepController } from "./creep/createCreepController";
 import { isNull, isUndefined } from "lodash";
+import { createRoomMemoryController } from "./roomMemory/createRoomMemoryController";
 
 interface Context {
   log: (message: string) => void;
@@ -24,17 +25,26 @@ export function createController(context: Context) {
     });
     creepController.preprocess();
     for (const [name, room] of Object.entries(rooms)) {
+      const roomMemory = room.memory;
+
       // eslint-disable-next-line no-underscore-dangle
       const _getRoom = () => {
         return room;
       };
+      const roomMemoryController = createRoomMemoryController({
+        getRoom: _getRoom
+      });
       const taskController = createTaskController(room);
       const layoutController = createBunkerController({
         getRoom: _getRoom,
-        addConstructTask: taskController.addConstructTask
+        getLayout: roomMemoryController.getLayout,
+        getBoundMap: roomMemoryController.getBoundMap,
+        addConstructTask: taskController.addConstructTask,
+        log: context.log
       });
       const structureController = createStructureController({
         getRoom: _getRoom,
+        getBoundMap: roomMemoryController.getBoundMap,
         addExpressTask: taskController.addExpressTask,
         peekSpawnTask: taskController.peekSpawnTask,
         getSpawnTask: taskController.getSpawnTask,
@@ -50,7 +60,7 @@ export function createController(context: Context) {
         getPositionBoundCreeps: creepController.getCreepsByPosition,
         getControllerEnergySourcePos: (controller: StructureController): RoomPosition => {
           const _room = controller.room;
-          const res = _room.memory.boundMap.get(controller);
+          const res = roomMemoryController.getBoundMap().get(controller.id);
           if (isNull(res)) {
             context.err(
               `Source in room ${_room.name}, position (${controller.pos.x}, ${controller.pos.y}) has no bound container!`
@@ -60,6 +70,7 @@ export function createController(context: Context) {
           if (res instanceof RoomPosition) return res;
           else return res!.pos;
         },
+        log: context.log,
         err: context.err,
         warn: context.warn
       });
@@ -95,6 +106,7 @@ export function createController(context: Context) {
         getNumCreepsByRole: (role: string): number => {
           return creepController.getCreepNumByRole(room, role);
         },
+        log: context.log,
         err: context.err,
         warn: context.warn
       });
@@ -110,6 +122,7 @@ export function createController(context: Context) {
         getNumCreepsByRole: (role: string): number => {
           return creepController.getCreepNumByRole(room, role);
         },
+        log: context.log,
         err: context.err,
         warn: context.warn
       });
@@ -122,7 +135,7 @@ export function createController(context: Context) {
         getSourceBoundContainerPos: (source: Source): RoomPosition => {
           // eslint-disable-next-line no-underscore-dangle
           const _room = source.room;
-          const res = _room.memory.boundMap.get(source);
+          const res = roomMemoryController.getBoundMap().get(source.id);
           if (isNull(res)) {
             context.err(
               `Source in room ${_room.name}, position (${source.pos.x}, ${source.pos.y}) has no bound container!`
@@ -135,10 +148,17 @@ export function createController(context: Context) {
         getPositionBoundCreeps: creepController.getCreepsByPosition,
         eliminateCreep: (creep: Creep): void => {
           creep.suicide();
-        }
+        },
+        log: context.log
       });
 
       // start running
+
+      // preprocess
+      roomMemoryController.preprocess();
+      taskController.preprocess();
+      structureController.preprocess();
+
       if (isUndefined(Memory.genLayout)) {
         Memory.genLayout = true;
       }
@@ -148,16 +168,16 @@ export function createController(context: Context) {
         Memory.genLayout = false;
       }
 
-      // preprocess
-      taskController.preprocess();
-      structureController.preprocess();
-
       // run
       structureController.run();
       upgradeController.run();
       constructController.run();
       expressController.run();
       harvestController.run();
+
+      // postprocess
+      roomMemoryController.postprocess();
+      taskController.postProcess();
     }
   };
 

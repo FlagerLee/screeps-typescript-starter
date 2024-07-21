@@ -1,3 +1,4 @@
+import { creepConfig } from "../creepConfig";
 import { isNull, isUndefined } from "lodash";
 
 function uuid() {
@@ -24,7 +25,6 @@ const creepBoundMapping: Map<RoomPosition, Set<Creep>> = new Map();
 
 export function createCreepController(context: creepControllerContext) {
   const preprocess = () => {
-    context.log("Run creep controller preprocess");
     for (const [creepName, creep] of Object.entries(Game.creeps)) {
       // init creepRoleRoomMapping
       const room = Game.rooms[creep.memory.spawnedRoom];
@@ -56,7 +56,6 @@ export function createCreepController(context: creepControllerContext) {
   };
 
   const getCreepsByRole = (room: Room, role: string): Creep[] => {
-    context.log("Run creep controller getCreepsByRole");
     if (!creepRoleRoomMapping.has(room)) return [];
     const creepRoleMapping = creepRoleRoomMapping.get(room)!;
     if (!creepRoleMapping.has(role)) return [];
@@ -64,7 +63,6 @@ export function createCreepController(context: creepControllerContext) {
   };
 
   const getCreepNumByRole = (room: Room, role: string): number => {
-    context.log("Run creep controller getCreepNumByRole");
     if (!creepRoleRoomMapping.has(room)) return 0;
     const creepRoleMapping = creepRoleRoomMapping.get(room)!;
     if (!creepRoleMapping.has(role)) return 0;
@@ -72,7 +70,6 @@ export function createCreepController(context: creepControllerContext) {
   };
 
   const getCreepsByPosition = (pos: RoomPosition): Creep[] => {
-    context.log("Run creep controller getCreepsByPosition");
     if (creepBoundMapping.has(pos)) return Array.from(creepBoundMapping.get(pos)!);
     return [];
   };
@@ -83,7 +80,6 @@ export function createCreepController(context: creepControllerContext) {
   };
 
   const spawnCreeps = (contextFn: spawnCreepContext) => {
-    context.log("Run creep controller spawnCreeps");
     const room = contextFn.getRoom();
     // check harvest creep
     {
@@ -98,13 +94,13 @@ export function createCreepController(context: creepControllerContext) {
         const creep = aliveCreeps[0];
         const ttl = creep.ticksToLive;
         if (!isUndefined(ttl)) {
-          if (ttl! < HARVEST_CREEP_REPLACE_TTL) {
+          if (ttl! < creepConfig.HARVEST_CREEP_REPLACE_TTL) {
             contextFn.addSpawnTask({
-              bodies: HARVEST_CREEP_BODY,
-              costs: HARVEST_CREEP_BODY_COST,
-              role: HARVEST_CREEP_ROLE,
-              priority: HARVEST_CREEP_PRIORITY,
-              name: `${HARVEST_CREEP_ROLE}_${uuid()}`,
+              bodies: creepConfig.HARVEST_CREEP_BODY,
+              costs: creepConfig.HARVEST_CREEP_BODY_COST,
+              role: creepConfig.HARVEST_CREEP_ROLE,
+              priority: creepConfig.HARVEST_CREEP_PRIORITY,
+              name: `${creepConfig.HARVEST_CREEP_ROLE}_${uuid()}`,
               boundPos: position,
               postTime: 0
             });
@@ -119,13 +115,13 @@ export function createCreepController(context: creepControllerContext) {
       const aliveCreeps = getCreepsByPosition(position);
       const aliveCreepNum = aliveCreeps.length;
       const creepNum = aliveCreepNum + contextFn.getNumCreepInSpawnQueueByPosition(position);
-      if (creepNum < UPGRADE_CREEP_LIMIT[controller.level]) {
+      if (creepNum < creepConfig.UPGRADE_CREEP_LIMIT[controller.level]) {
         contextFn.addSpawnTask({
-          bodies: UPGRADE_CREEP_BODY,
-          costs: UPGRADE_CREEP_BODY_COST,
-          role: UPGRADE_CREEP_ROLE,
-          priority: UPGRADE_CREEP_PRIORITY,
-          name: `${UPGRADE_CREEP_ROLE}_${uuid()}`,
+          bodies: creepConfig.UPGRADE_CREEP_BODY,
+          costs: creepConfig.UPGRADE_CREEP_BODY_COST,
+          role: creepConfig.UPGRADE_CREEP_ROLE,
+          priority: creepConfig.UPGRADE_CREEP_PRIORITY,
+          name: `${creepConfig.UPGRADE_CREEP_ROLE}_${uuid()}`,
           boundPos: position,
           postTime: 0
         });
@@ -133,30 +129,30 @@ export function createCreepController(context: creepControllerContext) {
     }
     // check express creep
     {
-      const aliveCreeps = getCreepsByRole(room, EXPRESS_CREEP_ROLE);
-      const creepNum = aliveCreeps.length + contextFn.getNumCreepInSpawnQueueByRole(EXPRESS_CREEP_ROLE);
+      const aliveCreeps = getCreepsByRole(room, creepConfig.EXPRESS_CREEP_ROLE);
+      const creepNum = aliveCreeps.length + contextFn.getNumCreepInSpawnQueueByRole(creepConfig.EXPRESS_CREEP_ROLE);
       if (creepNum < (room.controller!.level > 4 ? 2 : 3)) {
         contextFn.addSpawnTask({
-          bodies: EXPRESS_CREEP_BODY,
-          costs: EXPRESS_CREEP_BODY_COST,
-          role: EXPRESS_CREEP_ROLE,
-          priority: EXPRESS_CREEP_PRIORITY,
-          name: `${EXPRESS_CREEP_ROLE}_${uuid()}`,
+          bodies: creepConfig.EXPRESS_CREEP_BODY,
+          costs: creepConfig.EXPRESS_CREEP_BODY_COST,
+          role: creepConfig.EXPRESS_CREEP_ROLE,
+          priority: creepConfig.EXPRESS_CREEP_PRIORITY,
+          name: `${creepConfig.EXPRESS_CREEP_ROLE}_${uuid()}`,
           postTime: 0
         });
       }
     }
     // check construct creep
     {
-      const aliveCreeps = getCreepsByRole(room, CONSTRUCT_CREEP_ROLE);
-      const creepNum = aliveCreeps.length + contextFn.getNumCreepInSpawnQueueByRole(CONSTRUCT_CREEP_ROLE);
-      if (isNull(contextFn.peekConstructTask) && creepNum < CONSTRUCT_CREEP_NUM[room.controller!.level]) {
+      const aliveCreeps = getCreepsByRole(room, creepConfig.CONSTRUCT_CREEP_ROLE);
+      const creepNum = aliveCreeps.length + contextFn.getNumCreepInSpawnQueueByRole(creepConfig.CONSTRUCT_CREEP_ROLE);
+      if (isNull(contextFn.peekConstructTask) && creepNum < creepConfig.CONSTRUCT_CREEP_NUM[room.controller!.level]) {
         contextFn.addSpawnTask({
-          bodies: CONSTRUCT_CREEP_BODY,
-          costs: CONSTRUCT_CREEP_BODY_COST,
-          role: CONSTRUCT_CREEP_ROLE,
-          priority: CONSTRUCT_CREEP_PRIORITY,
-          name: `${CONSTRUCT_CREEP_ROLE}_${uuid()}`,
+          bodies: creepConfig.CONSTRUCT_CREEP_BODY,
+          costs: creepConfig.CONSTRUCT_CREEP_BODY_COST,
+          role: creepConfig.CONSTRUCT_CREEP_ROLE,
+          priority: creepConfig.CONSTRUCT_CREEP_PRIORITY,
+          name: `${creepConfig.CONSTRUCT_CREEP_ROLE}_${uuid()}`,
           postTime: 0
         });
       }

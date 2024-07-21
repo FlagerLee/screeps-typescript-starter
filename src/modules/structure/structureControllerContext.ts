@@ -1,5 +1,6 @@
 interface StructureControllerContext {
   getRoom: () => Room;
+  getBoundMap: () => Map<string, Structure | RoomPosition>;
 
   addExpressTask: (task: ExpressTask) => void;
 
