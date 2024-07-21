@@ -197,14 +197,15 @@ export function createBunkerController(context: BunkerControllerContext) {
       for (const source of sources) {
         const sourcePos = source.pos;
         for (let i = 0; i < 8; i++) {
-          const x = X + dx[i];
-          const y = Y + dy[i];
+          const x = sourcePos.x + dx[i];
+          const y = sourcePos.y + dy[i];
           const idx = x * 50 + y;
           if (!visitBase[idx]) {
             // container position
             const containerPos = room.getPositionAt(x, y)!;
             containerPosArr.push(containerPos);
             boundMap.set(source.id, containerPos);
+            break;
           }
         }
       }

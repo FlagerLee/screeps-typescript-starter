@@ -162,6 +162,10 @@ export function createTaskController(room: Room) {
     return task;
   };
 
+  const peekConstructTask = () => {
+    return constructQueue.peek();
+  };
+
   const addConstructTask = (task: ConstructTask) => {
     constructQueue.push(task);
   };
@@ -189,9 +193,11 @@ export function createTaskController(room: Room) {
     for (let i = 0; i < 10; i++) {
       if (constructQueue.empty()) break;
       const task = constructQueue.pop()!;
-      console.log(task.pos);
-      console.log(task.type);
-      console.log(room.createConstructionSite(task.pos, task.type));
+      const err = room.createConstructionSite(task.pos, task.type);
+      if (err === ERR_FULL) {
+        constructQueue.push(task);
+        break;
+      }
     }
 
     // expressQueue
@@ -222,10 +228,13 @@ export function createTaskController(room: Room) {
     getSpawnTask,
     addSpawnTask,
     getConstructTask,
+    peekConstructTask,
     addConstructTask,
     getRepairTask,
     addRepairTask,
     finishRepairTask,
+    getNumCreepInSpawnQueueByRole,
+    getNumCreepInSpawnQueueByPosition,
     postProcess
   };
 }

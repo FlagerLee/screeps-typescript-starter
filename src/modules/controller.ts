@@ -174,6 +174,14 @@ export function createController(context: Context) {
       constructController.run();
       expressController.run();
       harvestController.run();
+      creepController.spawnCreeps({
+        getRoom: _getRoom,
+        getSources: structureController.getSources,
+        addSpawnTask: taskController.addSpawnTask,
+        peekConstructTask: taskController.peekConstructTask,
+        getNumCreepInSpawnQueueByRole: taskController.getNumCreepInSpawnQueueByRole,
+        getNumCreepInSpawnQueueByPosition: taskController.getNumCreepInSpawnQueueByPosition
+      });
 
       // postprocess
       roomMemoryController.postprocess();
