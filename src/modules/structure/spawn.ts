@@ -42,8 +42,8 @@ export function run(spawn: StructureSpawn, context: spawnContext): void {
         const maxEnergy = context.getMaxSpawnUsableEnergy();
         let idx = -1;
         for (let i = 0; i < numConfigs; i++) {
-          if (maxEnergy > task!.costs[numConfigs - i - 1]) {
-            if (currentEnergy > task!.costs[numConfigs - i - 1]) idx = numConfigs - i - 1;
+          if (maxEnergy >= task!.costs[numConfigs - i - 1]) {
+            if (currentEnergy >= task!.costs[numConfigs - i - 1]) idx = numConfigs - i - 1;
             break;
           }
         }
