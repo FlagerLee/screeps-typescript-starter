@@ -224,7 +224,7 @@ export function createBunkerController(context: BunkerControllerContext) {
           }
         }
         // start from resPos
-        const paths = room.findPath(idxToPos(resPos), boundMap.get(sources[i].id) as RoomPosition, {
+        const paths = room.findPath(idxToPos(resPos), boundMap.get(containerPosArr[i].id) as RoomPosition, {
           ignoreCreeps: true
         });
         for (const step of paths) {
