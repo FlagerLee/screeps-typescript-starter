@@ -36,7 +36,14 @@ export const Creep_harvester = {
           return;
         }
         source = source!;
-        let structures = creep.room.lookForAtArea(LOOK_STRUCTURES, source.pos.y - 1, source.pos.x - 1, source.pos.y + 1, source.pos.x + 1, true);
+        let structures = creep.room.lookForAtArea(
+          LOOK_STRUCTURES,
+          source.pos.y - 1,
+          source.pos.x - 1,
+          source.pos.y + 1,
+          source.pos.x + 1,
+          true
+        );
         for (let structure of structures) {
           if (structure.structure.structureType == STRUCTURE_CONTAINER) {
             data.cid = structure.structure.id;
@@ -63,14 +70,23 @@ export const Creep_harvester = {
         error(`Harvester ${creep.name} cannot find source container`);
         return;
       }
+      if (!creep.pos.isEqualTo(container.pos)) {
+        creep.memory.state = STATE.MOVE;
+        return;
+      }
       if (container.store.getFreeCapacity(RESOURCE_ENERGY) == 0) return;
       let source = Game.getObjectById(data.sid as Id<Source>);
       if (source) {
         const result = creep.harvest(source);
-        if (result != OK) {
-          creep.say("Cannot harvest");
-          error(`Harvester ${creep.name} cannot harvest, error code = ${result}`);
-          return;
+        switch (result) {
+          case OK:
+            break;
+          case ERR_NOT_IN_RANGE:
+            creep.memory.state = STATE.MOVE;
+            break;
+          default:
+            creep.say("Cannot harvest");
+            error(`Harvester ${creep.name} cannot harvest, error code = ${result}`);
         }
       } else {
         creep.say("No source");
@@ -78,7 +94,7 @@ export const Creep_harvester = {
       }
     }
   }
-}
+};
 
 interface Harvester_data {
   sid: string; // source id
@@ -87,5 +103,5 @@ interface Harvester_data {
 
 enum STATE {
   MOVE, // move to an energy source
-  WORK, // harvest
+  WORK // harvest
 }

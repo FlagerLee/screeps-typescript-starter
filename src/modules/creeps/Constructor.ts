@@ -6,7 +6,7 @@ function error(message: string, throwError: boolean = false) {
 }
 
 export const Creep_constructor = {
-  run(creep: Creep): void {
+  run(creep: Creep, room: Room): void {
     if (creep.spawning) return;
     if (creep.ticksToLive! < 2) {
       creep.suicide();
@@ -23,35 +23,38 @@ export const Creep_constructor = {
       } else {
         creep.say("No data");
         error(`Constructor ${creep.name} data not found`);
+        return;
       }
     }
     let data = creep.memory.data as Constructor_data;
     if (!data.stop) data.stop = 0;
     if (data.stop && data.stop > 0) {
-      data.stop --;
+      data.stop--;
       return;
     }
-    let room = creep.room;
 
     if (state == STATE.IDLE) {
       // try to fetch task
-      let cq = creep.room.memory.cq;
+      let cq = room.memory.cq;
       if (cq.length > 0) {
         data.task = <ConstructTask>cq[cq.length - 1];
         let task = data.task as ConstructTask;
         if (task.tgt[0] == "|") {
           let positionList = task.tgt.split("|");
-          const sites = creep.room.lookForAt(
-            LOOK_CONSTRUCTION_SITES,
-            parseInt(positionList[1]),
-            parseInt(positionList[2])
-          );
-          if (sites.length == 0) {
-            warn(`Cannot find construction site (${positionList[1]}, ${positionList[2]})`);
-            cq.pop();
-            return;
+          let siteRoom = Game.rooms[positionList[3]];
+          if (siteRoom) {
+            const sites = siteRoom.lookForAt(
+              LOOK_CONSTRUCTION_SITES,
+              parseInt(positionList[1]),
+              parseInt(positionList[2])
+            );
+            if (sites.length == 0) {
+              warn(`Cannot find construction site (${positionList[1]}, ${positionList[2]})`);
+              cq.pop();
+              return;
+            }
+            task.tgt = sites[0].id;
           }
-          task.tgt = sites[0].id;
         }
         if (creep.store.energy < 5) {
           creep.memory.state = STATE.FETCH;
@@ -60,8 +63,7 @@ export const Creep_constructor = {
           creep.memory.state = STATE.WORK;
           state = STATE.WORK;
         }
-      }
-      else room.memory.creepConfigUpdate = true;
+      } else room.memory.creepConfigUpdate = true;
     }
     if (state == STATE.FETCH) {
       if (room.controller!.level == 1) {
@@ -169,19 +171,20 @@ export const Creep_constructor = {
         // construction finished
         creep.memory.state = STATE.IDLE;
         creep.memory.no_pull = false;
-        let cq = creep.room.memory.cq;
+        let cq = room.memory.cq;
         if (cq.length > 0 && task.tgt == cq[cq.length - 1].tgt) cq.pop();
         data.task = null;
         data.source = null;
         creep.room.update();
         return;
       }
+      if (creep.pos.x == 0 || creep.pos.x == 49 || creep.pos.y == 0 || creep.pos.y == 49) creep.moveTo(site.pos); // in case creep stuck at the boarder
       const result = creep.build(site);
       switch (result) {
         case ERR_NOT_ENOUGH_RESOURCES:
           break;
         case OK:
-          creep.memory.no_pull = true;
+          if (room.controller!.level <= 4) creep.memory.no_pull = true;
           break;
         case ERR_NOT_IN_RANGE:
           creep.moveTo(site.pos);

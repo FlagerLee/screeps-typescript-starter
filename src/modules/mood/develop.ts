@@ -6,9 +6,11 @@ export function updateFallback(room: Room) {
   // 1. creep carrier is dead, or
   // 2. creep harvester is dead
   for (const name of room.memory.sq) {
-    if (name.startsWith(HARVESTER) || name.startsWith(CARRIER)) {
+    if (name.startsWith(CARRIER)) {
       fallback = true;
       break;
+    } else if (name.startsWith(HARVESTER)) {
+      // TODO: add timer, when harvester is in spawnQueue more than 50 ticks, fallback
     }
   }
 
@@ -29,6 +31,18 @@ export function updateFallback(room: Room) {
     room.memory.fb = false;
     room.memory.fbc = -1;
   }
+}
+
+function getSRReadyNum(room: Room) {
+  let srs = room.memory.sr;
+  let num = 0;
+  for (let sr of srs) {
+    let r = Game.rooms[sr];
+    if (!r) continue;
+    let memory = r.memory as unknown as SRMemory;
+    if (memory.ready) num += memory.numSource;
+  }
+  return num;
 }
 
 const CreepDict = {
@@ -97,8 +111,16 @@ const CreepDict = {
   CARRIER: {
     getConfigIndex: function (room: Room): number {
       // TODO: implement
-      if (room.controller!.level == 1) return 0;
-      return 1;
+      let index = 0;
+      if (room.controller!.level == 1) index = 0;
+      else if (room.extension.length < 30) index = 1;
+      else index = 2;
+      if (room.memory.fb) {
+        for (; index >= 0; index--) {
+          if (getCreepCost(this.CONFIG[index].body) <= room.memory.fbc) break;
+        }
+      }
+      return index;
     },
     getNum: function (room: Room): number {
       // try to find center container
@@ -145,6 +167,8 @@ const CreepDict = {
         case 1:
         case 8:
           return 1;
+        case 5:
+          return 3;
         default:
           return 4;
       }
@@ -159,19 +183,120 @@ const CreepDict = {
     getConfigIndex: function (room: Room): number {
       // TODO: implement
       if (room.controller!.level == 1) return 1;
-      if (room.extension.length >= 5) return 2;
+      if (room.extension.length <= 25) return 2;
+      if (room.extension.length > 25) return 3;
       return 0;
     },
     getNum: function (room: Room): number {
       if (room.memory.cq.length == 0) return 0;
       // TODO: implement
       if (room.controller!.level == 1) return 3;
+      if (room.extension.length > 25) return 1;
       else return 2;
     },
     CONFIG: [
       { body: [WORK, CARRY, MOVE] },
       { body: [WORK, WORK, CARRY, MOVE] },
-      { body: [WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE] } // cost 550
+      { body: [WORK, WORK, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE] }, // cost 550
+      {
+        body: [
+          WORK,
+          WORK,
+          WORK,
+          WORK,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE
+        ]
+      } // cost 1150
+    ]
+  },
+  RESERVER: {
+    getConfigIndex: function (room: Room): number {
+      return 0;
+    },
+    getNum: function (room: Room): number {
+      if (room.extension.length < 30) return 0;
+      return room.memory.sr.length;
+    },
+    CONFIG: [
+      { body: [CLAIM, CLAIM, MOVE, MOVE] } // cost 1300
+    ]
+  },
+  SRHARVESTER: {
+    getConfigIndex: function (room: Room): number {
+      return 0;
+    },
+    getNum: function (room: Room): number {
+      return getSRReadyNum(room);
+    },
+    CONFIG: [{ body: [WORK, WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE] }]
+  },
+  SRCARRIER: {
+    getConfigIndex: function (room: Room): number {
+      return 0;
+    },
+    getNum: function (room: Room): number {
+      return getSRReadyNum(room);
+    },
+    CONFIG: [
+      {
+        body: [
+          WORK,
+          WORK,
+          WORK,
+          WORK,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          CARRY,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE
+        ]
+      }
+    ]
+  },
+  SRDEFENDER: {
+    getConfigIndex: function (room: Room): number {
+      return 0;
+    },
+    getNum: function (room: Room): number {
+      let numDefender = 0;
+      for (let srName of room.memory.sr) {
+        let room = Game.rooms[srName];
+        if (!room) continue;
+        let mem = room.memory as unknown as SRMemory;
+        if (mem.hasInvader) numDefender++;
+      }
+      return numDefender;
+    },
+    CONFIG: [
+      {
+        body: [...Array(10).fill(TOUGH), ...Array(15).fill(MOVE), ...Array(6).fill(RANGED_ATTACK), MOVE]
+      }
     ]
   }
 };
@@ -204,6 +329,22 @@ export const DevelopConfig = {
           let roleConfig = CreepDict.CONSTRUCTOR;
           return roleConfig.CONFIG[roleConfig.getConfigIndex(room)];
         }
+        case CreepType.RESERVER: {
+          let roleConfig = CreepDict.RESERVER;
+          return roleConfig.CONFIG[roleConfig.getConfigIndex(room)];
+        }
+        case CreepType.SRHARVESTER: {
+          let roleConfig = CreepDict.SRHARVESTER;
+          return roleConfig.CONFIG[roleConfig.getConfigIndex(room)];
+        }
+        case CreepType.SRCARRIER: {
+          let roleConfig = CreepDict.SRCARRIER;
+          return roleConfig.CONFIG[roleConfig.getConfigIndex(room)];
+        }
+        case CreepType.SRDEFENDER: {
+          let roleConfig = CreepDict.SRDEFENDER;
+          return roleConfig.CONFIG[roleConfig.getConfigIndex(room)];
+        }
         default:
           throw new Error(`[DEVELOP CONFIG] Unknown creep type ${creepType} in function getCreepConfig`);
       }
@@ -222,6 +363,14 @@ export const DevelopConfig = {
           return CreepDict.UPGRADER.getNum(room);
         case CreepType.CONSTRUCTOR:
           return CreepDict.CONSTRUCTOR.getNum(room);
+        case CreepType.RESERVER:
+          return CreepDict.RESERVER.getNum(room);
+        case CreepType.SRHARVESTER:
+          return CreepDict.SRHARVESTER.getNum(room);
+        case CreepType.SRCARRIER:
+          return CreepDict.SRCARRIER.getNum(room);
+        case CreepType.SRDEFENDER:
+          return CreepDict.SRDEFENDER.getNum(room);
         default:
           throw new Error(`[DEVELOP CONFIG] Unknown creep type ${creepType} in function getCreepNum`);
       }
