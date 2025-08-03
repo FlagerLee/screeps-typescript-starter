@@ -70,3 +70,8 @@ export function withdrawMsg(code: number): string {
   return `Unhandled withdraw error code ${code}`;
 }
 //-------------Creep Action Error Message End-------------//
+
+export function creepAtBoarder(pos: RoomPosition): boolean {
+  return pos.x == 0 || pos.x == 49 || pos.y == 0 || pos.y == 49;
+
+}

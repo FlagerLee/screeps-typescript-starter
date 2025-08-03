@@ -1,0 +1,1 @@
+export const CREEP_CHECK_DURATION = 1000;

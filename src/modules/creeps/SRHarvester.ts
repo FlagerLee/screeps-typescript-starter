@@ -1,12 +1,11 @@
 import { err } from "../Message";
-import { harvestMsg, lookRangeStructure } from "../../utils/ToolFunction";
+import { creepAtBoarder, harvestMsg, lookRangeStructure } from "../../utils/ToolFunction";
 
-function error(message: string, throwError: boolean = false) {
-  err(`[SR HARVESTER] ${message}`, throwError);
+function error(message: string) {
+  err(`[SR HARVESTER] ${message}`);
 }
 
-function getSourceByIdx(room: Room, idx: number): Source | null {
-  let sr = room.memory.sr;
+function getSourceByIdx(sr: string[], idx: number): Source | null {
   for (let roomName of sr) {
     let sourceNum = (Memory.rooms[roomName] as unknown as SRMemory).numSource;
     if (idx < sourceNum) {
@@ -22,30 +21,44 @@ function getSourceByIdx(room: Room, idx: number): Source | null {
 }
 
 export const Creep_sr_harvester = {
-  run(creep: Creep, room: Room) {
+  run(creep: Creep, room: Room, getSourceRooms: () => string[]) {
     if (creep.spawning) return;
     let memory = creep.memory;
     let state: STATE = memory.state;
 
     // check data
-    if (!creep.memory.data) {
+    if (!memory.data) {
       let l = creep.name.split("_");
-      let source = getSourceByIdx(room, parseInt(l[1]));
+      let source = getSourceByIdx(getSourceRooms(), parseInt(l[1]));
       if (!source) {
         error(`Cannot find source, idx = ${l[1]}`);
         return;
       }
       let result = lookRangeStructure(source.room, source.pos.x, source.pos.y, 1, STRUCTURE_CONTAINER);
       if (!result) {
-        error(`Cannot find container around source, room = ${source.room.name}, pos = (${source.pos.x}, ${source.pos.y})`);
+        error(
+          `Cannot find container around source, room = ${source.room.name}, pos = (${source.pos.x}, ${source.pos.y})`
+        );
         return;
       }
-      creep.memory.data = {
+      memory.data = {
         sid: source.id,
         cid: (result as StructureContainer).id
-      }
+      };
     }
-    let data = creep.memory.data as SRHarvester_data;
+    let data = memory.data as SRHarvester_data;
+
+    // check if room has invader. if so, flee
+    let source = Game.getObjectById(data.sid as Id<Source>);
+    if (!source) {
+      creep.say("No source");
+      error(`Cannot find source`);
+      return;
+    }
+    let outerRoom = source.room;
+    let outerRoomMemory = outerRoom.memory as unknown as SRMemory;
+    if (outerRoomMemory.hasInvader) memory.state = STATE.FLEE;
+    else if (memory.state == STATE.FLEE) memory.state = STATE.MOVE;
 
     if (state == STATE.MOVE) {
       let container = Game.getObjectById(data.cid as Id<StructureContainer>);
@@ -54,7 +67,7 @@ export const Creep_sr_harvester = {
         return;
       }
       if (!creep.pos.isEqualTo(container.pos)) creep.moveTo(container.pos);
-      else creep.memory.state = STATE.WORK;
+      else memory.state = STATE.WORK;
     }
     if (state == STATE.WORK) {
       let container = Game.getObjectById(data.cid as Id<StructureContainer>);
@@ -75,15 +88,24 @@ export const Creep_sr_harvester = {
         case OK:
           break;
         case ERR_NOT_IN_RANGE:
-          creep.memory.state = STATE.MOVE;
+          memory.state = STATE.MOVE;
           break;
         default:
           creep.say("Cannot harvest");
           error(harvestMsg(result));
       }
     }
+    if (state == STATE.FLEE) {
+      // go back to main room
+      if (creep.room.name !== room.name) {
+        creep.moveTo(room.controller!);
+      } else {
+        // in case creep stuck at the boarder
+        if (creepAtBoarder(creep.pos)) creep.moveTo(room.controller!);
+      }
+    }
   }
-}
+};
 
 interface SRHarvester_data {
   sid: string;
@@ -92,5 +114,6 @@ interface SRHarvester_data {
 
 enum STATE {
   MOVE,
-  WORK
+  WORK,
+  FLEE
 }

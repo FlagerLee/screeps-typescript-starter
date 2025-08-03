@@ -12,10 +12,8 @@ import { Creep_sr_harvester } from "./SRHarvester";
 import { Creep_sr_carrier } from "./SRCarrier";
 import { Creep_sr_defender } from "./SRDefender";
 
-const CREEP_CHECK_DURATION = 1000;
-
-function error(message: string, throwError: boolean = false) {
-  err(`\<CONSTRUCTOR\> ${message}`, throwError);
+function error(message: string) {
+  err(`[CREEP CONTROLLER] ${message}`);
 }
 
 export const CreepController = function (context: CreepControllerContext) {
@@ -26,72 +24,73 @@ export const CreepController = function (context: CreepControllerContext) {
   const run = function (): void {
     const room = context.room;
 
-    // check creep num
-    let destroyedNames: string[] = [];
-    if (room.memory.creepConfigUpdate || room.memory.lastCreepCheck > CREEP_CHECK_DURATION) {
-      checkCreepNum(room, names => {
-        destroyedNames = names;
-      });
-      room.memory.creepConfigUpdate = false;
-      room.memory.lastCreepCheck = 0;
-    }
     // get maintenancer queue
     for (let [name, creep] of Object.entries(Game.creeps)) {
-      let destroy = destroyedNames.includes(name);
       // use name to identify the creep's type
       const config = CreepAPI.getCreepConfig(name, { getCreepType: true });
       switch (config.creepType) {
         case CreepType.HARVESTER:
-          Creep_harvester.run(creep);
+          Creep_harvester.run(creep, room);
           break;
         case CreepType.CCARRIER:
-          Creep_center_carrier.run(creep, room);
-          if (destroy) Creep_center_carrier.destroy(creep, room);
+          Creep_center_carrier.run(creep, room, context.getCenterContainer, context.transferToCenterContainer);
           break;
         case CreepType.CARRIER:
-          Creep_carrier.run(creep, room, context.fetchCarryTask, context.returnCarryTask, context.finishCarryTask);
-          if (destroy) Creep_carrier.destroy(creep, room, context.returnCarryTask);
+          Creep_carrier.run(
+            creep,
+            room,
+            context.fetchCarryTask,
+            context.returnCarryTask,
+            context.finishCarryTask,
+            context.getCenterContainer
+          );
           break;
         case CreepType.REPAIRER:
-          Creep_repairer.run(creep, room, context.fetchRepairTask, context.returnRepairTask, context.finishRepairTask);
-          if (destroy) Creep_repairer.destroy(creep, room, context.returnRepairTask);
+          Creep_repairer.run(
+            creep,
+            room,
+            context.fetchRepairTask,
+            context.returnRepairTask,
+            context.finishRepairTask,
+            context.getCenterContainer
+          );
           break;
         case CreepType.UPGRADER:
-          Creep_upgrader.run(creep);
-          if (destroy) Creep_upgrader.destroy(creep, room);
+          Creep_upgrader.run(creep, room, context.getCenterContainer);
           break;
         case CreepType.CONSTRUCTOR:
-          Creep_constructor.run(creep, room);
-          if (destroy) Creep_constructor.destroy(creep, room);
+          Creep_constructor.run(
+            creep,
+            room,
+            context.fetchConstructTask,
+            context.finishConstructTask,
+            context.getCenterContainer,
+            context.transferToCenterContainer,
+            context.setUpdateCreepFlag
+          );
           break;
         case CreepType.RESERVER:
-          Creep_reserver.run(creep, room);
+          Creep_reserver.run(creep, room, context.getSourceRooms);
           break;
         case CreepType.SRHARVESTER:
-          Creep_sr_harvester.run(creep, room);
+          Creep_sr_harvester.run(creep, room, context.getSourceRooms);
           break;
         case CreepType.SRCARRIER:
-          Creep_sr_carrier.run(creep, room);
+          Creep_sr_carrier.run(creep, room, context.getSourceRooms);
           break;
         case CreepType.SRDEFENDER:
-          Creep_sr_defender.run(creep, room);
+          Creep_sr_defender.run(creep, room, context.getSourceRooms, context.setUpdateCreepFlag);
           break;
         default:
           error(`Unhandled creep type: ${name}`);
       }
     }
-    room.memory.lastCreepCheck += 1;
+
+    // check creep num
+    if (context.getUpdateCreepFlag()) checkCreepNum(room, context.getCreeps, context.addCreeps, context.removeCreeps);
   };
 
-  const getHostileCreeps = function(): Creep[] {
-    return context.room.find(FIND_HOSTILE_CREEPS);
-  }
-
-  const getHostilePowerCreeps = function(): PowerCreep[] {
-    return context.room.find(FIND_HOSTILE_POWER_CREEPS);
-  }
-
-  return { prerun, run, getHostileCreeps, getHostilePowerCreeps };
+  return { prerun, run };
 };
 
 interface CreepControllerContext {
@@ -99,8 +98,18 @@ interface CreepControllerContext {
   room: Room;
   fetchCarryTask(): CarryTask | null;
   fetchRepairTask(): RepairTask | null;
+  fetchConstructTask(): ConstructTask | null;
   returnCarryTask(task: CarryTask): void;
   returnRepairTask(task: RepairTask): void;
   finishCarryTask(task: CarryTask): void;
   finishRepairTask(task: RepairTask): void;
+  finishConstructTask(task: ConstructTask): void;
+  getCenterContainer(): StructureContainer | StructureStorage | null;
+  transferToCenterContainer(creep: Creep, type: ResourceConstant): ScreepsReturnCode;
+  getSourceRooms(): string[];
+  setUpdateCreepFlag(): void;
+  getUpdateCreepFlag(): boolean;
+  getCreeps(): string[];
+  addCreeps(creepNames: string[]): void;
+  removeCreeps(creepNames: string[]): void;
 }

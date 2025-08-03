@@ -201,7 +201,7 @@ function getCreepMemoryData(type: CreepType, nameInfoList: string[]): Object {
         }
       }
       if (!container) {
-        err(`[CREEP API] Cannot find source container, idx = ${idx}`, false);
+        err(`[CREEP API] Cannot find source container, idx = ${idx}`);
         return {
           sid: source.id,
           cid: ""

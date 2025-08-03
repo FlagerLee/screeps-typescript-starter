@@ -1,10 +1,14 @@
-import { warn } from "../Message";
+import { err, warn } from "../Message";
 import PriorityQueue from "../../utils/PriorityQueue";
+import { CREEP_CHECK_DURATION } from "../Constants";
+
+function error(message: string) {
+  err(`[CONSTRUCTOR] ${message}`);
+}
 
 let carryIdSet: Set<string> | undefined = undefined;
 let repairIdSet: Set<string> | undefined = undefined;
 let emergencyRepairIdSet: Set<string> | undefined = undefined;
-
 
 function initCarryIdSet(memory: RoomMemory) {
   carryIdSet = new Set();
@@ -30,6 +34,7 @@ function initEmergencyRepairIdSet(memory: RoomMemory) {
 let carryQueue: PriorityQueue<CarryTask> | undefined = undefined;
 let repairQueue: PriorityQueue<RepairTask> | undefined = undefined;
 let emergencyRepairQueue: PriorityQueue<RepairTask> | undefined = undefined;
+let spawnQueue: PriorityQueue<SpawnTask> | undefined = undefined;
 
 function repairTaskPriority(task1: RepairTask, task2: RepairTask): boolean {
   function score(task: RepairTask) {
@@ -41,7 +46,7 @@ function repairTaskPriority(task1: RepairTask, task2: RepairTask): boolean {
   return score(task1) > score(task2);
 }
 
-function initCarryQueue(room: Room) {
+function initCarryQueue(memory: RoomMemory) {
   function carryTaskPriority(task1: CarryTask, task2: CarryTask): boolean {
     let structure1 = Game.getObjectById(task1.tgt as Id<Structure>);
     let structure2 = Game.getObjectById(task2.tgt as Id<Structure>);
@@ -57,14 +62,15 @@ function initCarryQueue(room: Room) {
     }
 
     if (st1 !== st2) return ty(st1) > ty(st2);
-    let cx = room.memory.center.x, cy = room.memory.center.y;
+    let cx = memory.center.x,
+      cy = memory.center.y;
     function dist(pos: RoomPosition): number {
       return Math.abs(cx - pos.x) + Math.abs(cy - pos.y);
     }
     return dist(structure1.pos) < dist(structure2.pos);
   }
   carryQueue = new PriorityQueue<CarryTask>(carryTaskPriority);
-  for (const task of room.memory.caq) carryQueue.push(task);
+  for (const task of memory.caq) carryQueue.push(task);
 }
 
 function initRepairQueue(memory: RoomMemory) {
@@ -77,9 +83,29 @@ function initEmergencyRepairQueue(memory: RoomMemory) {
   for (const task of memory.erq) emergencyRepairQueue.push(task);
 }
 
+function initSpawnQueue(memory: RoomMemory) {
+  function spawnTaskPriority(task1: SpawnTask, task2: SpawnTask): boolean {
+    return task1.type < task2.type;
+  }
+  spawnQueue = new PriorityQueue<SpawnTask>();
+  for (const task of memory.sq) spawnQueue.push(task);
+}
+
 export const RoomMemoryController = function (context: RoomMemoryControllerContext) {
   const postRun = function () {
     let memory = context.room.memory;
+    // check creep update counter
+    if (memory.creepConfigUpdate) {
+      memory.creepConfigUpdate = false;
+      memory.lastCreepCheck = 0;
+    }
+    else {
+      if (memory.lastCreepCheck >= CREEP_CHECK_DURATION) {
+        memory.creepConfigUpdate = true;
+        memory.lastCreepCheck = 0;
+      } else memory.lastCreepCheck++;
+    }
+
     // move data back to memory
     if (carryIdSet) {
       memory.cis = [];
@@ -123,6 +149,13 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
       }
       emergencyRepairQueue = undefined;
     }
+    if (spawnQueue) {
+      memory.sq = [];
+      while (!spawnQueue.empty()) {
+        memory.sq.push(spawnQueue.poll());
+      }
+      spawnQueue = undefined;
+    }
   };
 
   const addCarryTask = function (task: CarryTask) {
@@ -130,7 +163,7 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
     carryIdSet = carryIdSet!;
     if (!carryIdSet.has(task.tgt)) {
       carryIdSet.add(task.tgt);
-      if (!carryQueue) initCarryQueue(context.room);
+      if (!carryQueue) initCarryQueue(context.room.memory);
       carryQueue!.push(task);
     }
   };
@@ -165,7 +198,7 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
       if (!emergencyRepairQueue) initEmergencyRepairQueue(context.room.memory);
       emergencyRepairQueue!.push(task);
     }
-  }
+  };
 
   const finishEmergencyRepairTask = function (task: RepairTask) {
     if (!emergencyRepairIdSet) initEmergencyRepairIdSet(context.room.memory);
@@ -174,42 +207,165 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
   };
 
   const fetchCarryTask = function (): CarryTask | null {
-    if (!carryQueue) initCarryQueue(context.room);
+    if (!carryQueue) initCarryQueue(context.room.memory);
     carryQueue = carryQueue!;
     if (carryQueue.empty()) return null;
     return carryQueue.poll();
-  }
+  };
 
   const fetchRepairTask = function (): RepairTask | null {
     if (!repairQueue) initRepairQueue(context.room.memory);
     repairQueue = repairQueue!;
     if (repairQueue.empty()) return null;
     return repairQueue.poll();
-  }
+  };
 
   const fetchEmergencyRepairTask = function (): RepairTask | null {
     if (!emergencyRepairQueue) initEmergencyRepairQueue(context.room.memory);
     emergencyRepairQueue = emergencyRepairQueue!;
     if (emergencyRepairQueue.empty()) return null;
     return emergencyRepairQueue.poll();
-  }
+  };
 
   const returnCarryTask = function (task: CarryTask) {
-    if (!carryQueue) initCarryQueue(context.room);
-    carryQueue =  carryQueue!;
+    if (!carryQueue) initCarryQueue(context.room.memory);
+    carryQueue = carryQueue!;
     carryQueue.push(task);
-  }
+  };
 
   const returnRepairTask = function (task: RepairTask) {
     if (!repairQueue) initRepairQueue(context.room.memory);
     repairQueue = repairQueue!;
     repairQueue.push(task);
-  }
+  };
 
   const returnEmergencyRepairTask = function (task: RepairTask) {
     if (!emergencyRepairQueue) initEmergencyRepairQueue(context.room.memory);
     emergencyRepairQueue = emergencyRepairQueue!;
     emergencyRepairQueue.push(task);
+  };
+
+  const addConstructTask = function (task: ConstructTask) {
+    context.room.memory.cq.unshift(task);
+  };
+
+  const addConstructTaskList = function (tasks: ConstructTask[]) {
+    context.room.memory.cq = tasks.concat(context.room.memory.cq);
+  };
+
+  const fetchConstructTask = function (): ConstructTask | null {
+    let constructQueue = context.room.memory.cq;
+    if (constructQueue.length == 0) {
+      return null;
+    }
+    while (constructQueue.length > 0) {
+      let task = constructQueue[constructQueue.length - 1];
+      let target = task.tgt;
+      if (target.startsWith("|")) {
+        // convert to id
+        let positionList = target.split("|");
+        let siteRoom = Game.rooms[positionList[3]];
+        if (!siteRoom) {
+          warn(`Construction site room ${positionList[3]} invisible`);
+          constructQueue.pop();
+          continue;
+        }
+        // find construction site
+        const sites = siteRoom.lookForAt(LOOK_CONSTRUCTION_SITES, parseInt(positionList[1]), parseInt(positionList[2]));
+        if (sites.length == 0) {
+          warn(
+            `Cannot find construction site at room ${positionList[3]}, position (${positionList[1]}, ${positionList[2]})`
+          );
+          constructQueue.pop();
+          continue;
+        }
+        let site = sites[0];
+        task.tgt = site.id;
+        return task;
+      } else return task;
+    }
+    return null;
+  };
+
+  const finishConstructTask = function (task: ConstructTask) {
+    context.room.update();
+    let constructQueue = context.room.memory.cq;
+    if (constructQueue.length == 0) return;
+    let t = constructQueue[constructQueue.length - 1];
+    if (t.tgt !== task.tgt) return;
+    constructQueue.pop();
+  };
+
+  const addSpawnTask = function (task: SpawnTask) {
+    if (!spawnQueue) initSpawnQueue(context.room.memory);
+    spawnQueue = spawnQueue!;
+    spawnQueue.push(task);
+  };
+
+  const fetchSpawnTask = function (): SpawnTask | null {
+    if (!spawnQueue) initSpawnQueue(context.room.memory);
+    spawnQueue = spawnQueue!;
+    if (spawnQueue.empty()) return null;
+    return spawnQueue.poll();
+  };
+
+  const returnSpawnTask = function (task: SpawnTask) {
+    addSpawnTask(task);
+  };
+
+  const getCenter = function (): RoomPosition {
+    let center = context.room.memory.center;
+    return new RoomPosition(center.x, center.y, context.room.name);
+  };
+
+  const setUpdateCreepFlag = function (): void {
+    context.room.memory.creepConfigUpdate = true;
+  };
+
+  const getUpdateCreepFlag = function (): boolean {
+    return context.room.memory.creepConfigUpdate;
+  }
+
+  const getLevel = function (): number {
+    return context.room.memory.lv;
+  };
+
+  const updateLevel = function (lv: number): void {
+    context.room.memory.lv = lv;
+  };
+
+  const getTowerMemory = function (id: string): TowerMemory {
+    let memory = context.room.memory.tm[id];
+    if (memory === undefined) {
+      context.room.memory.tm[id] = { rt: null };
+      return context.room.memory.tm[id];
+    }
+    return memory;
+  };
+
+  const getCreeps = function (): string[] {
+    return context.room.memory.creeps;
+  };
+
+  const getSourceRooms = function (): string[] {
+    return context.room.memory.sr;
+  };
+
+  const addCreeps = function(creepNames: string[]) {
+    let creeps = context.room.memory.creeps;
+    for (let creepName of creepNames) {
+      if (!creeps.includes(creepName)) creeps.push(creepName);
+    }
+  }
+
+  const removeCreeps = function(creepNames: string[]) {
+    let creeps = context.room.memory.creeps;
+    for (let creepName of creepNames) {
+      let index = creeps.indexOf(creepName);
+      if (index != -1) {
+        creeps.splice(index, 1);
+      }
+    }
   }
 
   return {
@@ -226,6 +382,23 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
     returnCarryTask,
     returnRepairTask,
     returnEmergencyRepairTask,
+    addConstructTask,
+    addConstructTaskList,
+    fetchConstructTask,
+    finishConstructTask,
+    addSpawnTask,
+    fetchSpawnTask,
+    returnSpawnTask,
+    getCenter,
+    setUpdateCreepFlag,
+    getUpdateCreepFlag,
+    getLevel,
+    updateLevel,
+    getTowerMemory,
+    addCreeps,
+    removeCreeps,
+    getCreeps,
+    getSourceRooms
   };
 };
 

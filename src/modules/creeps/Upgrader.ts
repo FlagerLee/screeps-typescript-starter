@@ -1,12 +1,12 @@
 import { err, info } from "../Message";
 import { CreepAPI } from "./CreepAPI";
 
-function error(message: string, throwError: boolean = false) {
-  err(`[UPGRADER] ${message}`, throwError);
+function error(message: string) {
+  err(`[UPGRADER] ${message}`);
 }
 
 export const Creep_upgrader = {
-  run(creep: Creep): void {
+  run(creep: Creep, room: Room, getCenterContainer: () => StructureContainer | StructureStorage | null): void {
     if (creep.spawning) return;
 
     let state: STATE = creep.memory.state;
@@ -23,10 +23,9 @@ export const Creep_upgrader = {
     let data = creep.memory.data as Upgrader_data;
     if (!data.stop) data.stop = 0;
     if (data.stop > 0) {
-      data.stop --;
+      data.stop--;
       return;
     }
-    let room = creep.room;
 
     if (state == STATE.IDLE) {
       creep.memory.state = STATE.FETCH;
@@ -57,28 +56,15 @@ export const Creep_upgrader = {
             error(`Unhandled withdraw error code: ${result}`);
         }
       }
-
-      // storage exists or not has huge difference
-      if (room.storage) {
-        // storage exists, rcl >= 4
-        withdraw(room.storage);
-      } else {
-        // storage not exists, rcl <= 4, fetch energy from center container
-        if (Math.max(Math.abs(creep.pos.x - room.memory.center.x), Math.abs(creep.pos.y - room.memory.center.y)) > 1) {
-          creep.moveTo(room.memory.center.x, room.memory.center.y);
-        } else {
-          // find container
-          let structures = room.lookForAt(LOOK_STRUCTURES, room.memory.center.x, room.memory.center.y);
-          if (structures.length == 0) {
-            error(`Cannot find container at (${room.memory.center.x}, ${room.memory.center.y})`);
-            return;
-          }
-          withdraw(structures[0]);
-        }
+      let container = getCenterContainer();
+      if (!container) {
+        error(`Cannot find center container`);
+        return;
       }
+      withdraw(container);
     } else if (state == STATE.WORK) {
       // assume upgrader will not go outside the room
-      const controller = creep.room.controller!;
+      const controller = room.controller!;
       const result = creep.upgradeController(controller);
       switch (result) {
         case OK:
@@ -96,14 +82,6 @@ export const Creep_upgrader = {
           error(`Unhandled upgrade controller error code: ${result}`);
       }
     }
-  },
-  destroy(creep: Creep, room: Room): void {
-    info(`Destroying creep ${creep.name}`);
-    delete Memory.creeps[creep.name];
-    let creeps = room.memory.creeps;
-    const index = creeps.indexOf(creep.name);
-    if (index > -1) creeps.splice(index, 1);
-    creep.suicide();
   }
 };
 

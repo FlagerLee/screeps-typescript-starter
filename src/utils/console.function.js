@@ -73,3 +73,10 @@ global.updateRoomMemory = function() {
     if (!roomMemory.lastCreepCheck) roomMemory.lastCreepCheck = 0;
   }
 }
+
+global.removeCreep = function(creepName) {
+  let creep = Game.creeps[creepName];
+  if (!creep) return;
+  creep.suicide();
+  delete Memory.creeps[creepName];
+}

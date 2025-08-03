@@ -1,17 +1,17 @@
 import { err } from "../Message";
 import { rangedAttackMsg } from "../../utils/ToolFunction";
 
-function error(message: string, throwError: boolean = false) {
-  err(`[SR DEFENDER] ${message}`, throwError);
+function error(message: string) {
+  err(`[SR DEFENDER] ${message}`);
 }
 
 export const Creep_sr_defender = {
-  run(creep: Creep, room: Room) {
+  run(creep: Creep, room: Room, getSourceRooms: () => string[], setUpdateCreepFlag: () => void) {
     if (creep.spawning) return;
     let memory = creep.memory;
     if (!memory.data) {
       // find room to defend
-      for (let srRoomName of room.memory.sr) {
+      for (let srRoomName of getSourceRooms()) {
         let r = Game.rooms[srRoomName];
         if (r && (r.memory as unknown as SRMemory).hasInvader && !(r.memory as unknown as SRMemory).hasDefender) {
           memory.data = { roomName: srRoomName, target: null } as SRDefender_data;
@@ -30,7 +30,7 @@ export const Creep_sr_defender = {
     }
     if (creep.ticksToLive! < 2) {
       srMemory.hasDefender = false;
-      room.memory.creepConfigUpdate = true;
+      setUpdateCreepFlag();
       creep.suicide();
     }
 

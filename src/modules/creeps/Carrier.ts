@@ -1,8 +1,9 @@
 import { CreepAPI } from "./CreepAPI";
 import { err, info } from "../Message";
+import { lookStructure } from "../../utils/ToolFunction";
 
-function error(message: string, throwError: boolean = false) {
-  err(`[CARRIER] ${message}`, throwError);
+function error(message: string) {
+  err(`[CARRIER] ${message}`);
 }
 
 export const Creep_carrier = {
@@ -11,7 +12,8 @@ export const Creep_carrier = {
     room: Room,
     fetchCarryTask: () => CarryTask | null,
     returnCarryTask: (task: CarryTask) => void,
-    finishCarryTask: (task: CarryTask) => void
+    finishCarryTask: (task: CarryTask) => void,
+    getCenterContainer: () => StructureContainer | StructureStorage | null
   ): void {
     if (creep.spawning) return;
     // if creep will die soon, return task
@@ -69,23 +71,12 @@ export const Creep_carrier = {
         }
       }
       // storage exists or not has huge difference
-      if (room.storage) {
-        // storage exists, rcl >= 4
-        withdraw(room.storage);
-      } else {
-        // storage not exists, rcl <= 4, fetch energy from center container
-        if (Math.max(Math.abs(creep.pos.x - room.memory.center.x), Math.abs(creep.pos.y - room.memory.center.y)) > 1) {
-          creep.moveTo(room.memory.center.x, room.memory.center.y);
-        } else {
-          // find container
-          let structures = room.lookForAt(LOOK_STRUCTURES, room.memory.center.x, room.memory.center.y);
-          if (structures.length == 0) {
-            error(`Cannot find container at (${room.memory.center.x}, ${room.memory.center.y})`);
-            return;
-          }
-          withdraw(structures[0]);
-        }
+      let container = getCenterContainer();
+      if (!container) {
+        error(`Cannot find center container`);
+        return;
       }
+      withdraw(container);
     }
     if (state == STATE.WORK) {
       let task = data.task!;
@@ -112,16 +103,6 @@ export const Creep_carrier = {
       if (structure) transfer(structure);
       else error(`Cannot find structure ${task.tgt}`);
     }
-  },
-  destroy(creep: Creep, room: Room, returnCarryTask: (task: CarryTask) => void) {
-    info(`Destroying creep ${creep.name}`);
-    let data = creep.memory.data as Carrier_data;
-    if (data.task) returnCarryTask(data.task);
-    delete Memory.creeps[creep.name];
-    let creeps = room.memory.creeps;
-    const index = creeps.indexOf(creep.name);
-    if (index > -1) creeps.splice(index, 1);
-    creep.suicide();
   }
 };
 

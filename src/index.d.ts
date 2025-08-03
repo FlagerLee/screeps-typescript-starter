@@ -37,6 +37,7 @@ interface Room {
   resetQueue: () => void;
 }
 
+// TASK
 interface ConstructTask {
   tgt: string;
 }
@@ -49,6 +50,12 @@ interface RepairTask {
   hits: number; // hits to be repaired
   sn: string; // structure name
 }
+interface SpawnTask {
+  name: string; // creep name
+  type: number; // creep type
+  spawn: string | null; // select specific spawn
+}
+// TASK QUEUE && TASK SET
 
 interface FallBackData {
   fb: boolean; // fallback flag
@@ -66,6 +73,7 @@ interface CreepMemory {
   data?: object;
 }
 interface RoomMemory {
+  Debug: boolean;
   // structure memory
   tm: { [id: string]: TowerMemory };
 
@@ -76,7 +84,7 @@ interface RoomMemory {
   ris: string[]; // repair task id set
   eris: string[]; // emergency repair task id set
   cq: ConstructTask[]; // construction queue
-  sq: string[]; // spawn queue
+  sq: SpawnTask[]; // spawn queue
   fb: boolean; // creep config fallback
   fbc: number; // fallback cost
   sr: string[]; // source rooms(外矿房)
@@ -86,6 +94,49 @@ interface RoomMemory {
   lastCreepCheck: number; // ticks since last creep check
   creepConfigUpdate: boolean; // creep config update flag
 }
+
+interface CarryTaskStruct {
+  Queue: CarryTask[];
+  Set: string[];
+}
+interface RepairTaskStruct {
+  Queue: RepairTask[];
+  Set: string[];
+}
+interface EmergencyRepairTaskStruct {
+  Queue: RepairTask[];
+  Set: string[];
+}
+interface SpawnTaskStruct {
+  Queue: SpawnTask[];
+}
+interface ConstructTaskStruct {
+  Queue: ConstructTask[];
+}
+interface Tasks {
+  CarryTask: CarryTaskStruct;
+  RepairTask: RepairTaskStruct;
+  EmergencyRepairTask: EmergencyRepairTaskStruct;
+  SpawnTask: SpawnTaskStruct;
+  ConstructTask: ConstructTaskStruct;
+}
+interface CreepUpdateStruct {
+  lastCreepCheck: number;
+  creepConfigUpdate: boolean;
+}
+interface NewRoomMemory {
+  // debug tag. if Debug is set to true, all the logic in this room will be stopped
+  Debug: boolean;
+
+  // tasks
+  Tasks: Tasks;
+  // outer source rooms
+  SourceRooms: string[];
+  // creep update
+  UpdateCreep: CreepUpdateStruct;
+
+}
+
 interface SRMemory {
   // source room memory
   init: boolean;

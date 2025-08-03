@@ -1,13 +1,19 @@
 // Carry energy from source container to center container
 import { err, info } from "../Message";
 import { CreepAPI } from "./CreepAPI";
+import { lookStructure } from "../../utils/ToolFunction";
 
-function error(message: string, throwError: boolean = false) {
-  err(`[CENTER CARRIER] ${message}`, throwError);
+function error(message: string) {
+  err(`[CENTER CARRIER] ${message}`);
 }
 
 export const Creep_center_carrier = {
-  run(creep: Creep, room: Room): void {
+  run(
+    creep: Creep,
+    room: Room,
+    getCenterContainer: () => StructureContainer | StructureStorage | null,
+    transferToCenterContainer: (creep: Creep, type: ResourceConstant) => ScreepsReturnCode
+  ): void {
     if (creep.spawning) return;
     let memory = creep.memory;
     let state: STATE = memory.state;
@@ -24,7 +30,7 @@ export const Creep_center_carrier = {
     let data = memory.data as CCarrier_data;
     if (!data.stop) data.stop = 0;
     if (data.stop > 0) {
-      data.stop --;
+      data.stop--;
       return;
     }
 
@@ -71,7 +77,7 @@ export const Creep_center_carrier = {
     }
     if (state == STATE.WORK) {
       function transfer(structure: Structure): void {
-        const result = creep.transfer(structure, RESOURCE_ENERGY);
+        const result = transferToCenterContainer(creep, RESOURCE_ENERGY);
         switch (result) {
           case ERR_NOT_ENOUGH_RESOURCES:
           case OK:
@@ -87,34 +93,13 @@ export const Creep_center_carrier = {
         }
       }
       // find target
-      if (room.storage) {
-        // TODO: check storage energy capacity
-        transfer(room.storage);
-      } else {
-        // get center container
-        let structures = room.lookForAt(LOOK_STRUCTURES, room.memory.center.x, room.memory.center.y);
-        let container: StructureContainer | null = null;
-        for (let structure of structures) {
-          if (structure.structureType == STRUCTURE_CONTAINER) {
-            container = structure as StructureContainer;
-            break;
-          }
-        }
-        if (!container) {
-          error(`Cannot find center container`);
-          return;
-        }
-        if (container.store.getFreeCapacity(RESOURCE_ENERGY) > 0) transfer(container);
+      let container = getCenterContainer();
+      if (!container) {
+        error(`Cannot find center container`);
+        return;
       }
+      transfer(container);
     }
-  },
-  destroy(creep: Creep, room: Room) {
-    info(`Destroying creep ${creep.name}`);
-    delete Memory.creeps[creep.name];
-    let creeps = room.memory.creeps;
-    const index = creeps.indexOf(creep.name);
-    if (index > -1) creeps.splice(index, 1);
-    creep.suicide();
   }
 };
 

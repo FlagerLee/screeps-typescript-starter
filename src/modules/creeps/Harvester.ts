@@ -1,14 +1,15 @@
 import { CreepAPI } from "./CreepAPI";
 import { err, info } from "../Message";
+import { lookStructure } from "../../utils/ToolFunction";
 
 // TODO: 1. calculate px and py; 2. fill state IDLE by get memory data from creepapi
 
-function error(message: string, throwError: boolean = false) {
-  err(`[HARVESTER] ${message}`, throwError);
+function error(message: string) {
+  err(`[HARVESTER] ${message}`);
 }
 
 export const Creep_harvester = {
-  run(creep: Creep): void {
+  run(creep: Creep, room: Room): void {
     if (creep.spawning) return;
     let memory = creep.memory;
     let state: STATE = memory.state;
@@ -36,19 +37,10 @@ export const Creep_harvester = {
           return;
         }
         source = source!;
-        let structures = creep.room.lookForAtArea(
-          LOOK_STRUCTURES,
-          source.pos.y - 1,
-          source.pos.x - 1,
-          source.pos.y + 1,
-          source.pos.x + 1,
-          true
-        );
-        for (let structure of structures) {
-          if (structure.structure.structureType == STRUCTURE_CONTAINER) {
-            data.cid = structure.structure.id;
-            break;
-          }
+        let container = lookStructure(room, source.pos.x, source.pos.y, STRUCTURE_CONTAINER);
+        if (container) data.cid = container.id;
+        else {
+          error(`Cannot find source container around (${source.pos.x}, ${source.pos.y})`);
         }
       }
       let container = Game.getObjectById(data.cid as Id<StructureContainer>);

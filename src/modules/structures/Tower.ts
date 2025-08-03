@@ -1,7 +1,7 @@
-import { err } from "../Message";
+import { err, warn } from "../Message";
 
-function error(message: string, throwError: boolean = false) {
-  err(`[TOWER] ${message}`, throwError);
+function error(message: string) {
+  err(`[TOWER] ${message}`);
 }
 
 export const STower = {
@@ -10,7 +10,8 @@ export const STower = {
     addCarryTask: (task: CarryTask) => void,
     getAttackTarget: () => AnyCreep | Structure | null,
     fetchEmergencyRepairTask: () => RepairTask | null,
-    finishEmergencyRepairTask: (task: RepairTask) => void
+    finishEmergencyRepairTask: (task: RepairTask) => void,
+    getTowerMemory: (id: string) => TowerMemory
   ) {
     // carry task
     if (tower.store.energy * 2 < tower.store.getCapacity(RESOURCE_ENERGY))
@@ -19,10 +20,7 @@ export const STower = {
         rt: RESOURCE_ENERGY
       });
     // init memory
-    let memory = tower.room.memory.tm[tower.id];
-    if (memory == undefined) {
-      tower.room.memory.tm[tower.id] = { rt: null };
-    }
+    let memory = getTowerMemory(tower.id);
     // repair
     function repair(task: RepairTask): number {
       let structure = Game.getObjectById(task.tgt as Id<Structure>);
@@ -39,18 +37,30 @@ export const STower = {
         return -1;
       }
     }
-    if (!memory.rt) memory.rt = fetchEmergencyRepairTask();
-    if (memory.rt) {
-      let result = repair(memory.rt);
-      if (result != 0) {
-        // fetch new task
-        finishEmergencyRepairTask(memory.rt);
-        memory.rt = fetchEmergencyRepairTask();
+    // try to repair emergency structures
+    if (memory) {
+      if (!memory.rt) memory.rt = fetchEmergencyRepairTask();
+      if (memory.rt) {
+        let result = repair(memory.rt);
+        if (result != 0) {
+          // fetch new task
+          finishEmergencyRepairTask(memory.rt);
+          memory.rt = fetchEmergencyRepairTask();
+        }
+        return;
       }
-      return;
+    } else {
+      warn(`[TOWER] Tower ${tower.id} has no memory`);
     }
     // attack target
     let target = getAttackTarget();
     if (target) tower.attack(target);
+    // check if any creep needs healing
+    for (let creep of tower.room.find(FIND_MY_CREEPS)) {
+      if (creep.hits < creep.hitsMax) {
+        tower.heal(creep);
+        break;
+      }
+    }
   }
 };

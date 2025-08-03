@@ -1,35 +1,25 @@
 import { CreepController } from "./creeps/Controller";
-import { SpawnController } from "./Spawn";
+// import { SpawnController } from "./Spawn";
 import { StructuresController } from "./structures/StructuresController";
 import { RoomMemoryController } from "./memory/RoomMemory";
 import { DefenseController } from "./defense/Controller";
 import { LayoutController } from "./layout/Controller";
 import { SourceRoomController } from "./structures/SourceRoomController";
 import { err, info } from "./Message";
+import { CreepAPI } from "./creeps/CreepAPI";
 
 export const MainController = {
   run(): void {
     const rooms = _.filter(Game.rooms, room => room.controller && room.controller.my);
     for (const room of rooms) {
       this.checkAndInitRoom(room);
+      if (room.memory.Debug) continue;
       // create controller
       const layoutController = LayoutController({ room: room });
       const roomMemoryController = RoomMemoryController({ room: room });
-      const spawnController = SpawnController({ room: room });
-      const creepController = CreepController({
-        spawnFunc: spawnController.createSpawnTask,
-        room: room,
-        fetchCarryTask: roomMemoryController.fetchCarryTask,
-        returnCarryTask: roomMemoryController.returnCarryTask,
-        finishCarryTask: roomMemoryController.finishCarryTask,
-        fetchRepairTask: roomMemoryController.fetchRepairTask,
-        returnRepairTask: roomMemoryController.returnRepairTask,
-        finishRepairTask: roomMemoryController.finishRepairTask
-      });
+      // const spawnController = SpawnController({ room: room });
       const defenseController = DefenseController({
-        room: room,
-        getHostileCreeps: creepController.getHostileCreeps,
-        getHostilePowerCreeps: creepController.getHostilePowerCreeps
+        room: room
       });
       const structureController = StructuresController({
         room: room,
@@ -40,16 +30,50 @@ export const MainController = {
         getRampartTargetHits: layoutController.getRampartTargetHits,
         addEmergencyRepairTask: roomMemoryController.addEmergencyRepairTask,
         fetchEmergencyRepairTask: roomMemoryController.fetchEmergencyRepairTask,
-        finishEmergencyRepairTask: roomMemoryController.finishEmergencyRepairTask
+        finishEmergencyRepairTask: roomMemoryController.finishEmergencyRepairTask,
+        getCenter: roomMemoryController.getCenter,
+        getLevel: roomMemoryController.getLevel,
+        updateLevel: roomMemoryController.updateLevel,
+        setUpdateCreepFlag: roomMemoryController.setUpdateCreepFlag,
+        getTowerMemory: roomMemoryController.getTowerMemory,
+        fetchSpawnTask: roomMemoryController.fetchSpawnTask,
+        returnSpawnTask: roomMemoryController.returnSpawnTask,
+        addConstructTask: roomMemoryController.addConstructTask
+      });
+      const creepController = CreepController({
+        spawnFunc: (name: string): void => {
+          // check if name exists in room creeps
+          if (!roomMemoryController.getCreeps().includes(name)) return;
+          // create spawn task
+          let config = CreepAPI.getCreepConfig(name, { getCreepType: true });
+          roomMemoryController.addSpawnTask({ name: name, type: config.creepType!, spawn: null } as SpawnTask);
+        },
+        room: room,
+        fetchCarryTask: roomMemoryController.fetchCarryTask,
+        returnCarryTask: roomMemoryController.returnCarryTask,
+        finishCarryTask: roomMemoryController.finishCarryTask,
+        fetchRepairTask: roomMemoryController.fetchRepairTask,
+        returnRepairTask: roomMemoryController.returnRepairTask,
+        finishRepairTask: roomMemoryController.finishRepairTask,
+        fetchConstructTask: roomMemoryController.fetchConstructTask,
+        finishConstructTask: roomMemoryController.finishConstructTask,
+        getCenterContainer: structureController.getCenterContainer,
+        transferToCenterContainer: structureController.transferToCenterContainer,
+        getSourceRooms: roomMemoryController.getSourceRooms,
+        setUpdateCreepFlag: roomMemoryController.setUpdateCreepFlag,
+        getUpdateCreepFlag: roomMemoryController.getUpdateCreepFlag,
+        getCreeps: roomMemoryController.getCreeps,
+        addCreeps: roomMemoryController.addCreeps,
+        removeCreeps: roomMemoryController.removeCreeps
       });
       const sourceRoomController = SourceRoomController({
         getFatherCenter: (): RoomPosition => {
-          return room.getPositionAt(room.memory.center.x, room.memory.center.y)!;
+          return roomMemoryController.getCenter();
         },
         createConstructionSiteByPath: (path: RoomPosition[]): void => {
           console.log(path.length);
           if (path.length == 0) {
-            err(`[MAIN CONTROLLER] path is null`, false);
+            err(`[MAIN CONTROLLER] path is null`);
             return;
           }
           let containerPos = path.pop()!;
@@ -61,16 +85,13 @@ export const MainController = {
             let result = r.createConstructionSite(pos, STRUCTURE_ROAD);
             switch (result) {
               case ERR_INVALID_ARGS:
-                err(
-                  `Put construction site on invalid position, room = ${pos.roomName}, pos = (${pos.x}, ${pos.y})`,
-                  false
-                );
+                err(`Put construction site on invalid position, room = ${pos.roomName}, pos = (${pos.x}, ${pos.y})`);
                 break;
               case OK:
                 cq.push({ tgt: `|${pos.x}|${pos.y}|${pos.roomName}` } as ConstructTask);
                 break;
               default:
-                err(`Unhandled createConstructionSite error code ${result}`, false);
+                err(`Unhandled createConstructionSite error code ${result}`);
             }
           }
           // create container
@@ -79,42 +100,41 @@ export const MainController = {
           switch (result) {
             case ERR_INVALID_ARGS:
               err(
-                `Put construction site on invalid position, room = ${containerPos.roomName}, pos = (${containerPos.x}, ${containerPos.y})`,
-                false
+                `Put construction site on invalid position, room = ${containerPos.roomName}, pos = (${containerPos.x}, ${containerPos.y})`
               );
               break;
             case OK:
               cq.push({ tgt: `|${containerPos.x}|${containerPos.y}|${containerPos.roomName}` } as ConstructTask);
               break;
             default:
-              err(`Unhandled createConstructionSite error code ${result}`, false);
+              err(`Unhandled createConstructionSite error code ${result}`);
           }
           // push cq
-          room.memory.cq = cq.reverse().concat(room.memory.cq);
+          roomMemoryController.addConstructTaskList(cq.reverse());
         },
-        updateCreepCheckFlag: (): void => {
-          room.memory.creepConfigUpdate = true;
-        }
+        updateCreepCheckFlag: roomMemoryController.setUpdateCreepFlag
       });
 
       // prerun
       creepController.prerun();
 
       // run
-      for (let srName of room.memory.sr) sourceRoomController.run(srName);
-      spawnController.run();
+      for (let srName of roomMemoryController.getSourceRooms()) sourceRoomController.run(srName);
+      // spawnController.run();
       structureController.run();
       creepController.run();
 
       // postrun
       roomMemoryController.postRun();
+      structureController.postRun();
     }
   },
 
   checkAndInitRoom(room: Room): void {
-    if (room.memory.creeps == undefined) {
+    if (room.memory.Debug == undefined) {
       const spawnPos = room.spawn[0].pos;
       Memory.rooms[room.name] = {
+        Debug: false,
         tm: {},
         creeps: [],
         caq: [],

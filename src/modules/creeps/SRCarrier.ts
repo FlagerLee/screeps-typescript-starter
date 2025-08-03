@@ -1,13 +1,19 @@
 import { CreepAPI } from "./CreepAPI";
 import { err } from "../Message";
-import { lookRangeStructure, lookStructure, repairMsg, transferMsg, withdrawMsg } from "../../utils/ToolFunction";
+import {
+  creepAtBoarder,
+  lookRangeStructure,
+  lookStructure,
+  repairMsg,
+  transferMsg,
+  withdrawMsg
+} from "../../utils/ToolFunction";
 
-function error(message: string, throwError: boolean = false) {
-  err(`[SR CARRIER] ${message}`, throwError);
+function error(message: string) {
+  err(`[SR CARRIER] ${message}`);
 }
 
-function getSourceByIdx(room: Room, idx: number): Source | null {
-  let sr = room.memory.sr;
+function getSourceByIdx(sr: string[], idx: number): Source | null {
   for (let roomName of sr) {
     let sourceNum = (Memory.rooms[roomName] as unknown as SRMemory).numSource;
     if (idx < sourceNum) {
@@ -23,37 +29,46 @@ function getSourceByIdx(room: Room, idx: number): Source | null {
 }
 
 export const Creep_sr_carrier = {
-  run(creep: Creep, room: Room) {
+  run(creep: Creep, room: Room, getSourceRooms: () => string[]) {
     if (creep.spawning) return;
 
     let memory = creep.memory;
     let state = memory.state;
     if (!memory.data) {
-      const config = CreepAPI.getCreepConfig(creep.name, { getCreepMemoryData: true });
-      creep.memory.data = config.creepMemoryData;
+      let l = creep.name.split("_");
+      let source = getSourceByIdx(getSourceRooms(), parseInt(l[1]));
+      if (!source) {
+        error(`Cannot find outer source, index = ${l[1]}`);
+        return;
+      }
+      let result = lookRangeStructure(source.room, source.pos.x, source.pos.y, 1, STRUCTURE_CONTAINER);
+      if (!result) {
+        error(
+          `Cannot find container around source, room = ${source.room.name}, pos = (${source.pos.x}, ${source.pos.y})`
+        );
+        return;
+      }
+      let container = result as StructureContainer;
+      creep.memory.data = { container: container.id, repairId: null } as SRCarrier_data;
     }
     let data = memory.data as SRCarrier_data;
 
-    if (state == STATE.FETCH) {
-      // init container
-      if (!data.container) {
-        let l = creep.name.split("_");
-        let source = getSourceByIdx(room, parseInt(l[1]));
-        if (!source) {
-          error(`Cannot find outer source, index = ${l[1]}`);
-          return;
-        }
-        let result = lookRangeStructure(source.room, source.pos.x, source.pos.y, 1, STRUCTURE_CONTAINER);
-        if (!result) {
-          error(
-            `Cannot find container around source, room = ${source.room.name}, pos = (${source.pos.x}, ${source.pos.y})`
-          );
-          return;
-        }
-        let container = result as StructureContainer;
-        data.container = container.id;
-      }
+    // check if room has invader. if so, flee
+    let container = Game.getObjectById(data.container as Id<Source>);
+    if (!container) {
+      creep.say("No source");
+      error(`Cannot find source`);
+      return;
+    }
+    let outerRoom = container.room;
+    let outerRoomMemory = outerRoom.memory as unknown as SRMemory;
+    if (outerRoomMemory.hasInvader) memory.state = STATE.FLEE;
+    else if (memory.state == STATE.FLEE) {
+      if (creep.store.getFreeCapacity(RESOURCE_ENERGY) < 200) memory.state = STATE.CARRY;
+      else memory.state = STATE.FETCH;
+    }
 
+    if (state == STATE.FETCH) {
       // move to container
       let container = Game.getObjectById(data.container as Id<StructureContainer>);
       if (!container) {
@@ -63,8 +78,7 @@ export const Creep_sr_carrier = {
       let pos = container.pos;
       if (creep.room.name !== pos.roomName) {
         creep.moveTo(pos);
-      }
-      else if (Math.max(Math.abs(creep.pos.x - pos.x), Math.abs(creep.pos.y - pos.y)) > 1) creep.moveTo(pos);
+      } else if (Math.max(Math.abs(creep.pos.x - pos.x), Math.abs(creep.pos.y - pos.y)) > 1) creep.moveTo(pos);
       else {
         let srRoom = Game.rooms[pos.roomName];
         if (!srRoom) {
@@ -86,8 +100,7 @@ export const Creep_sr_carrier = {
             if (container.hits < CONTAINER_HITS * 0.8) {
               data.repairId = container.id;
               creep.memory.state = STATE.REPAIR;
-            }
-            else creep.memory.state = STATE.CARRY;
+            } else creep.memory.state = STATE.CARRY;
             break;
           case ERR_NOT_ENOUGH_RESOURCES:
             break;
@@ -149,6 +162,7 @@ export const Creep_sr_carrier = {
       let result = creep.transfer(target, RESOURCE_ENERGY);
       switch (result) {
         case ERR_FULL:
+        case ERR_NOT_ENOUGH_RESOURCES:
         case OK:
           creep.memory.state = STATE.FETCH;
           break;
@@ -157,6 +171,15 @@ export const Creep_sr_carrier = {
           break;
         default:
           error(transferMsg(result));
+      }
+    }
+    if (state == STATE.FLEE) {
+      // go back to main room
+      if (creep.room.name !== room.name) {
+        creep.moveTo(room.controller!);
+      } else {
+        // in case creep stuck at the boarder
+        if (creepAtBoarder(creep.pos)) creep.moveTo(room.controller!);
       }
     }
   }
@@ -170,5 +193,6 @@ interface SRCarrier_data {
 enum STATE {
   FETCH,
   REPAIR,
-  CARRY
+  CARRY,
+  FLEE
 }

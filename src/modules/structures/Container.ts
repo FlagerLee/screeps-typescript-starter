@@ -1,7 +1,6 @@
 export const SContainer = {
   run(container: StructureContainer, addRepairTask: (task: RepairTask) => void, addEmergencyRepairTask: (task: RepairTask) => void) {
     const room = container.room;
-    const memory = room.memory;
     // repair task
     if (container.hits < (container.hitsMax * 0.75))
       addRepairTask({
