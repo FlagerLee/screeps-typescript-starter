@@ -28,12 +28,13 @@ export const StructuresController = function (context: StructureControllerContex
           context.getLevel,
           context.updateLevel,
           context.setUpdateCreepFlag,
-          context.addConstructTask
+          context.addConstructTask,
+          context.createLayout
         );
       });
     for (const spawn of room.spawn) {
       handleError(STRUCTURE_SPAWN, () => {
-        SSpawn.run(spawn, context.addCarryTask, context.fetchSpawnTask, context.returnSpawnTask);
+        SSpawn.run(spawn, context.addCarryTask, context.fetchSpawnTask, context.returnSpawnTask, context.getCreepBody);
       });
     }
     for (const container of room.container) {
@@ -116,4 +117,5 @@ interface StructureControllerContext {
   fetchSpawnTask: () => SpawnTask | null;
   returnSpawnTask: (task: SpawnTask) => void;
   addConstructTask: (task: ConstructTask) => void;
+  getCreepBody: (creepName: string) => BodyPartConstant[];
 }

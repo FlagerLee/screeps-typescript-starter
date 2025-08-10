@@ -1,5 +1,4 @@
 import { err, info } from "../Message";
-import { CreepAPI } from "./CreepAPI";
 
 function error(message: string) {
   err(`[UPGRADER] ${message}`);
@@ -8,17 +7,12 @@ function error(message: string) {
 export const Creep_upgrader = {
   run(creep: Creep, room: Room, getCenterContainer: () => StructureContainer | StructureStorage | null): void {
     if (creep.spawning) return;
-
-    let state: STATE = creep.memory.state;
-    if (!creep.memory.data) {
-      if (state == STATE.IDLE) {
-        // init memory data
-        const config = CreepAPI.getCreepConfig(creep.name, { getCreepMemoryData: true });
-        creep.memory.data = config.creepMemoryData;
-      } else {
-        creep.say("No data");
-        error(`Center Carrier ${creep.name} data not found`);
-      }
+    let memory = creep.memory;
+    let state: STATE = memory.state;
+    if (!memory.data) {
+      memory.data = {
+        stop: 0
+      } as Upgrader_data;
     }
     let data = creep.memory.data as Upgrader_data;
     if (!data.stop) data.stop = 0;

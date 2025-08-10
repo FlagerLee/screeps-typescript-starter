@@ -1,4 +1,3 @@
-import { CreepAPI } from "./CreepAPI";
 import { err, info } from "../Message";
 import { lookStructure } from "../../utils/ToolFunction";
 
@@ -15,15 +14,33 @@ export const Creep_harvester = {
     let state: STATE = memory.state;
 
     // check data
-    if (!creep.memory.data) {
-      if (state == STATE.MOVE) {
-        // init memory data
-        const config = CreepAPI.getCreepConfig(creep.name, { getCreepMemoryData: true });
-        creep.memory.data = config.creepMemoryData;
-      } else {
-        creep.say("No data");
-        error(`Harvester ${creep.name} data not found`);
+    if (!memory.data) {
+      let nameInfoList = creep.name.split("_");
+      const idx = Number(nameInfoList[1]);
+      const source = room.source[idx];
+      const sid = source.id;
+      let cid = "";
+      // find container
+      let structures = room.lookForAtArea(
+        LOOK_STRUCTURES,
+        source.pos.y - 1,
+        source.pos.x - 1,
+        source.pos.y + 1,
+        source.pos.x + 1,
+        true
+      );
+      let container: StructureContainer | null = null;
+      for (let structure of structures) {
+        if (structure.structure.structureType == STRUCTURE_CONTAINER) {
+          container = structure.structure as StructureContainer;
+          break;
+        }
       }
+      if (container) cid = container.id;
+      memory.data = {
+        sid: sid,
+        cid: cid
+      } as Harvester_data;
     }
     let data = creep.memory.data as Harvester_data;
 
@@ -50,6 +67,7 @@ export const Creep_harvester = {
         } else {
           creep.memory.state = STATE.WORK;
           state = STATE.WORK;
+          creep.memory.no_pull = true;
         }
       } else {
         error(`Harvester ${creep.name} cannot find source container`);

@@ -5,8 +5,10 @@ import { RoomMemoryController } from "./memory/RoomMemory";
 import { DefenseController } from "./defense/Controller";
 import { LayoutController } from "./layout/Controller";
 import { SourceRoomController } from "./structures/SourceRoomController";
-import { err, info } from "./Message";
-import { CreepAPI } from "./creeps/CreepAPI";
+import { err } from "./Message";
+import { Mood, MoodController } from "./mood/Controller";
+import { SourceRoomMemoryController } from "./memory/SourceRoomMemory";
+import { CreepType, getCreepType } from "./creeps/CreepAPI";
 
 export const MainController = {
   run(): void {
@@ -15,11 +17,32 @@ export const MainController = {
       this.checkAndInitRoom(room);
       if (room.memory.Debug) continue;
       // create controller
-      const layoutController = LayoutController({ room: room });
       const roomMemoryController = RoomMemoryController({ room: room });
+      const sourceRoomMemoryController = SourceRoomMemoryController({
+        sourceRoomNames: roomMemoryController.getSourceRooms()
+      });
+      const layoutController = LayoutController({
+        room: room,
+        getCenter: roomMemoryController.getCenter
+      });
       // const spawnController = SpawnController({ room: room });
       const defenseController = DefenseController({
         room: room
+      });
+      const moodController = MoodController({
+        room: room,
+        getNumConstructionSite: roomMemoryController.getConstructTaskNum,
+        getNumRepairTask: roomMemoryController.getRepairTaskNum,
+        getNumSourceRooms: () => {
+          return roomMemoryController.getSourceRooms().length;
+        },
+        getSRReadySourceNum: sourceRoomMemoryController.getSRReadySourceNum,
+        carrierAlive: () => {
+          return roomMemoryController.nameInSpawnQueue(`CARRIER_0_${room.name}`);
+        },
+        getMood: () => {
+          return Mood.DEVELOP;
+        }
       });
       const structureController = StructuresController({
         room: room,
@@ -38,40 +61,14 @@ export const MainController = {
         getTowerMemory: roomMemoryController.getTowerMemory,
         fetchSpawnTask: roomMemoryController.fetchSpawnTask,
         returnSpawnTask: roomMemoryController.returnSpawnTask,
-        addConstructTask: roomMemoryController.addConstructTask
-      });
-      const creepController = CreepController({
-        spawnFunc: (name: string): void => {
-          // check if name exists in room creeps
-          if (!roomMemoryController.getCreeps().includes(name)) return;
-          // create spawn task
-          let config = CreepAPI.getCreepConfig(name, { getCreepType: true });
-          roomMemoryController.addSpawnTask({ name: name, type: config.creepType!, spawn: null } as SpawnTask);
-        },
-        room: room,
-        fetchCarryTask: roomMemoryController.fetchCarryTask,
-        returnCarryTask: roomMemoryController.returnCarryTask,
-        finishCarryTask: roomMemoryController.finishCarryTask,
-        fetchRepairTask: roomMemoryController.fetchRepairTask,
-        returnRepairTask: roomMemoryController.returnRepairTask,
-        finishRepairTask: roomMemoryController.finishRepairTask,
-        fetchConstructTask: roomMemoryController.fetchConstructTask,
-        finishConstructTask: roomMemoryController.finishConstructTask,
-        getCenterContainer: structureController.getCenterContainer,
-        transferToCenterContainer: structureController.transferToCenterContainer,
-        getSourceRooms: roomMemoryController.getSourceRooms,
-        setUpdateCreepFlag: roomMemoryController.setUpdateCreepFlag,
-        getUpdateCreepFlag: roomMemoryController.getUpdateCreepFlag,
-        getCreeps: roomMemoryController.getCreeps,
-        addCreeps: roomMemoryController.addCreeps,
-        removeCreeps: roomMemoryController.removeCreeps
+        addConstructTask: roomMemoryController.addConstructTask,
+        getCreepBody: (creepName: string) => moodController.getCreepConfig(creepName)![0]
       });
       const sourceRoomController = SourceRoomController({
         getFatherCenter: (): RoomPosition => {
           return roomMemoryController.getCenter();
         },
         createConstructionSiteByPath: (path: RoomPosition[]): void => {
-          console.log(path.length);
           if (path.length == 0) {
             err(`[MAIN CONTROLLER] path is null`);
             return;
@@ -114,9 +111,38 @@ export const MainController = {
         },
         updateCreepCheckFlag: roomMemoryController.setUpdateCreepFlag
       });
+      const creepController = CreepController({
+        spawnFunc: (name: string): void => {
+          // check if name exists in room creeps
+          if (!roomMemoryController.getCreeps().includes(name)) return;
+          // create spawn task
+          roomMemoryController.addSpawnTask({ name: name, type: getCreepType(name)!, spawn: null } as SpawnTask);
+        },
+        room: room,
+        fetchCarryTask: roomMemoryController.fetchCarryTask,
+        returnCarryTask: roomMemoryController.returnCarryTask,
+        finishCarryTask: roomMemoryController.finishCarryTask,
+        fetchRepairTask: roomMemoryController.fetchRepairTask,
+        returnRepairTask: roomMemoryController.returnRepairTask,
+        finishRepairTask: roomMemoryController.finishRepairTask,
+        fetchConstructTask: roomMemoryController.fetchConstructTask,
+        finishConstructTask: roomMemoryController.finishConstructTask,
+        getCenterContainer: structureController.getCenterContainer,
+        transferToCenterContainer: structureController.transferToCenterContainer,
+        getSourceRooms: roomMemoryController.getSourceRooms,
+        setUpdateCreepFlag: roomMemoryController.setUpdateCreepFlag,
+        getUpdateCreepFlag: roomMemoryController.getUpdateCreepFlag,
+        getCreeps: roomMemoryController.getCreeps,
+        addCreeps: roomMemoryController.addCreeps,
+        removeCreeps: roomMemoryController.removeCreeps,
+        getCreepNum: (creepType: CreepType) => moodController.getCreepNum(creepType) ?? 0,
+        nameInSpawnQueue: roomMemoryController.nameInSpawnQueue,
+        hasInvader: sourceRoomMemoryController.hasInvader
+      });
 
       // prerun
       creepController.prerun();
+      sourceRoomMemoryController.prerun();
 
       // run
       for (let srName of roomMemoryController.getSourceRooms()) sourceRoomController.run(srName);

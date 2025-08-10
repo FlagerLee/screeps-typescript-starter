@@ -1,4 +1,3 @@
-import { createBunkerLayout } from "../layout/bunkerLayout";
 import { err } from "../Message";
 
 function error(message: string) {
@@ -11,13 +10,14 @@ export const SController = {
     getLevel: () => number,
     updateLevel: (lv: number) => void,
     setUpdateCreepFlag: () => void,
-    addConstructTask: (task: ConstructTask) => void
+    addConstructTask: (task: ConstructTask) => void,
+    createLayout: (createFn: (x: number, y: number, type: BuildableStructureConstant) => void) => void
   ) {
     // check level
     const room = controller.room;
     let level = getLevel();
     if (controller.level > level) {
-      createBunkerLayout(room, (x, y, type) => {
+      createLayout((x: number, y: number, type: BuildableStructureConstant) => {
         const result = room.createConstructionSite(x, y, type);
         switch (result) {
           case OK:

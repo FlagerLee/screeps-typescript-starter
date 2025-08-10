@@ -1,6 +1,5 @@
 // Carry energy from source container to center container
 import { err, info } from "../Message";
-import { CreepAPI } from "./CreepAPI";
 import { lookStructure } from "../../utils/ToolFunction";
 
 function error(message: string) {
@@ -17,15 +16,8 @@ export const Creep_center_carrier = {
     if (creep.spawning) return;
     let memory = creep.memory;
     let state: STATE = memory.state;
-    if (!creep.memory.data) {
-      if (state == STATE.FETCH) {
-        // init memory data
-        const config = CreepAPI.getCreepConfig(creep.name, { getCreepMemoryData: true });
-        creep.memory.data = config.creepMemoryData;
-      } else {
-        creep.say("No data");
-        error(`Center Carrier ${creep.name} data not found`);
-      }
+    if (!memory.data) {
+      memory.data = { stop: 0 } as CCarrier_data;
     }
     let data = memory.data as CCarrier_data;
     if (!data.stop) data.stop = 0;

@@ -45,7 +45,7 @@ Room.prototype.addSourceRoom = function(roomName) {
     console.log("Source room name should be a string");
     return;
   }
-  this.memory.rq.push(roomName);
+  this.memory.sr.push(roomName);
 }
 
 global.findPath = function(name1, x1, y1, name2, x2, y2) {

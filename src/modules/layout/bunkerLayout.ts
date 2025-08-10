@@ -1,5 +1,6 @@
 import { VisualBuilding } from "./visual";
 import { err } from "../Message";
+import { searchPath } from "../../utils/ToolFunction";
 
 const SpawnsLoc = [
   { x: 1, y: 0 },
@@ -389,6 +390,9 @@ export const BunkerLayout = {
         for (const container of containers) createFn(container.x, container.y, STRUCTURE_CONTAINER);
         for (const road of roads) createFn(road.x, road.y, STRUCTURE_ROAD);
         createFn(center.x, center.y, STRUCTURE_CONTAINER); // center container
+        // road to controller
+        let path = floodFillSearchPath(room, room.controller!.pos, center);
+        for (const road of path) createFn(road.x, road.y, STRUCTURE_ROAD);
         break;
       }
       case 2: {
@@ -405,12 +409,11 @@ export const BunkerLayout = {
           return { x: loc.x + center.x, y: loc.y + center.y };
         });
         for (const road of roads) createFn(road.x, road.y, STRUCTURE_ROAD);
-        // road to controller
-        let path = floodFillSearchPath(room, room.controller!.pos, center);
-        if (path.length > 2) {
-          console.log("Found road to controller");
-          for (const road of path.slice(0, path.length - 2)) createFn(road.x, road.y, STRUCTURE_ROAD);
-        }
+
+        // find container position around controller
+        const result = searchPath(center, room.controller!.pos, 3);
+        const containerPos = result.path[result.path.length - 1];
+        createFn(containerPos.x, containerPos.y, STRUCTURE_CONTAINER);
         break;
       }
       case 3: {
@@ -562,4 +565,4 @@ export const BunkerLayout = {
         error(`Unimplemented controller level ${controller!.level}`);
     }
   }
-}
+};

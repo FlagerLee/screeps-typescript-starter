@@ -1,5 +1,4 @@
-import { updateFallback } from "../mood/develop";
-import { CreepAPI, CreepType, getCreepTypeList } from "./CreepAPI";
+import { CreepType, getCreepType, getCreepTypeList } from "./CreepAPI";
 
 export function checkCreepMemory(room: Room, spawn: (creepName: string) => void) {
   for (const name in Memory.creeps) {
@@ -15,7 +14,9 @@ export function checkCreepNum(
   room: Room,
   getCreeps: () => string[],
   addCreeps: (names: string[]) => void,
-  destroyCreeps: (names: string[]) => void
+  destroyCreeps: (names: string[]) => void,
+  getCreepNum: (creepType: CreepType) => number,
+  nameInSpawnQueue: (creepName: string) => boolean
 ) {
   const creepTypeList = getCreepTypeList();
   let creepTypeMap: Record<CreepType, string[]> = creepTypeList.reduce((acc, key) => {
@@ -24,14 +25,14 @@ export function checkCreepNum(
   }, {} as Record<CreepType, string[]>);
   // calculate creep info in memory
   for (const creepName of getCreeps()) {
-    const config = CreepAPI.getCreepConfig(creepName, { getCreepType: true });
-    creepTypeMap[config.creepType!].push(creepName);
+    const creepType = getCreepType(creepName);
+    creepTypeMap[creepType!].push(creepName);
   }
   // check each type of creep
   let destroyedCreepNames: string[] = [];
   let addCreepNames: string[] = [];
   for (const creepType of creepTypeList) {
-    const exceptNum = CreepAPI.getCreepNum(creepType, room);
+    const exceptNum = getCreepNum(creepType);
     const realNum = creepTypeMap[creepType].length;
     if (realNum > exceptNum) {
       let creepNames = creepTypeMap[creepType];
@@ -55,6 +56,7 @@ export function checkCreepNum(
   // update creep memory
   let creepNames = getCreeps();
   for (let creepName of creepNames) {
-    if (!Memory.creeps[creepName]) Memory.creeps[creepName] = {state: 0, no_pull: false};
+    if (!Memory.creeps[creepName] && !nameInSpawnQueue(creepName))
+      Memory.creeps[creepName] = { state: 0, no_pull: false };
   }
 }

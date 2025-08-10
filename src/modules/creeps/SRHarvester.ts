@@ -21,7 +21,7 @@ function getSourceByIdx(sr: string[], idx: number): Source | null {
 }
 
 export const Creep_sr_harvester = {
-  run(creep: Creep, room: Room, getSourceRooms: () => string[]) {
+  run(creep: Creep, room: Room, getSourceRooms: () => string[], hasInvader: (roomName: string) => boolean) {
     if (creep.spawning) return;
     let memory = creep.memory;
     let state: STATE = memory.state;
@@ -55,9 +55,7 @@ export const Creep_sr_harvester = {
       error(`Cannot find source`);
       return;
     }
-    let outerRoom = source.room;
-    let outerRoomMemory = outerRoom.memory as unknown as SRMemory;
-    if (outerRoomMemory.hasInvader) memory.state = STATE.FLEE;
+    if (hasInvader(source.room.name)) memory.state = STATE.FLEE;
     else if (memory.state == STATE.FLEE) memory.state = STATE.MOVE;
 
     if (state == STATE.MOVE) {

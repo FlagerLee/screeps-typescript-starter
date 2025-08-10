@@ -1,4 +1,3 @@
-import { CreepAPI } from "./CreepAPI";
 import { err, info, warn } from "../Message";
 import { creepAtBoarder, lookStructure } from "../../utils/ToolFunction";
 
@@ -20,22 +19,18 @@ export const Creep_constructor = {
     if (creep.ticksToLive! < 2) {
       creep.suicide();
     }
-
-    let state: STATE = creep.memory.state;
+    let memory = creep.memory;
+    let state: STATE = memory.state;
 
     // check data
-    if (!creep.memory.data) {
-      if (state == STATE.IDLE) {
-        // init memory data
-        const config = CreepAPI.getCreepConfig(creep.name, { getCreepMemoryData: true });
-        creep.memory.data = config.creepMemoryData;
-      } else {
-        creep.say("No data");
-        error(`Constructor ${creep.name} data not found`);
-        return;
-      }
+    if (!memory.data) {
+      memory.data = {
+        stop: 0,
+        task: null,
+        source: null
+      } as Constructor_data;
     }
-    let data = creep.memory.data as Constructor_data;
+    let data = memory.data as Constructor_data;
     if (!data.stop) data.stop = 0;
     if (data.stop && data.stop > 0) {
       data.stop--;
@@ -45,14 +40,15 @@ export const Creep_constructor = {
     if (state == STATE.IDLE) {
       let task = fetchConstructTask();
       if (!task) {
-        creep.memory.state = STATE.RETURN;
+        memory.state = STATE.UPDATE;
+        state = STATE.UPDATE;
       } else {
         data.task = task;
         if (creep.store.energy < 5) {
-          creep.memory.state = STATE.FETCH;
+          memory.state = STATE.FETCH;
           state = STATE.FETCH;
         } else {
-          creep.memory.state = STATE.WORK;
+          memory.state = STATE.WORK;
           state = STATE.WORK;
         }
       }
@@ -63,14 +59,14 @@ export const Creep_constructor = {
           const result = creep.harvest(source);
           switch (result) {
             case OK:
-              creep.memory.no_pull = true;
+              memory.no_pull = true;
               break;
             case ERR_NOT_IN_RANGE:
               creep.moveTo(source.pos);
               break;
             case ERR_NOT_ENOUGH_RESOURCES:
               if (creep.store.energy > 0) {
-                creep.memory.state = STATE.WORK;
+                memory.state = STATE.WORK;
                 state = STATE.WORK;
               }
               break;
@@ -78,8 +74,8 @@ export const Creep_constructor = {
               error(`Unhandled harvest error: ${result}`);
           }
           if (creep.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
-            creep.memory.no_pull = false;
-            creep.memory.state = STATE.WORK;
+            memory.no_pull = false;
+            memory.state = STATE.WORK;
             state = STATE.WORK;
           }
         }
@@ -121,7 +117,7 @@ export const Creep_constructor = {
           switch (result) {
             case ERR_FULL:
             case OK:
-              creep.memory.state = STATE.WORK;
+              memory.state = STATE.WORK;
               break;
             case ERR_NOT_IN_RANGE:
               creep.moveTo(structure.pos);
@@ -148,8 +144,8 @@ export const Creep_constructor = {
       if (!site) {
         // construction finished
         finishConstructTask(task);
-        creep.memory.state = STATE.IDLE;
-        creep.memory.no_pull = false;
+        memory.state = STATE.IDLE;
+        memory.no_pull = false;
         data.task = null;
         data.source = null;
         return;
@@ -160,7 +156,7 @@ export const Creep_constructor = {
         case ERR_NOT_ENOUGH_RESOURCES:
           break;
         case OK:
-          if (room.controller!.level <= 4) creep.memory.no_pull = true;
+          if (room.controller!.level <= 4) memory.no_pull = true;
           break;
         case ERR_NOT_IN_RANGE:
           creep.moveTo(site.pos);
@@ -169,18 +165,25 @@ export const Creep_constructor = {
           error(`Unhandled build error code ${result}`);
       }
       if (creep.store.energy == 0) {
-        creep.memory.state = STATE.FETCH;
-        creep.memory.no_pull = false;
+        memory.state = STATE.FETCH;
+        memory.no_pull = false;
       }
     }
-    if (state == STATE.RETURN) {
+    if (state == STATE.UPDATE) {
       setUpdateCreepFlag();
+      memory.state = STATE.RETURN;
+      state = STATE.RETURN;
+    }
+    if (state == STATE.RETURN) {
+      if (creep.store.energy == 0) {
+        creep.suicide();
+        return;
+      }
       function transfer(structure: Structure): void {
         const result = transferToCenterContainer(creep, RESOURCE_ENERGY);
         switch (result) {
           case ERR_NOT_ENOUGH_RESOURCES:
           case OK:
-            creep.suicide();
             break;
           case ERR_FULL:
             creep.drop(RESOURCE_ENERGY);
@@ -204,7 +207,7 @@ export const Creep_constructor = {
 };
 
 interface Constructor_data {
-  stop: number | null;
+  stop: number;
   task: ConstructTask | null;
   source: string | null;
 }
@@ -213,5 +216,6 @@ enum STATE {
   IDLE,
   FETCH,
   WORK,
+  UPDATE,
   RETURN
 }

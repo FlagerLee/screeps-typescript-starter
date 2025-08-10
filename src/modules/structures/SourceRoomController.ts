@@ -1,5 +1,6 @@
 import { SRoad } from "./road";
 import { SContainer } from "./Container";
+import { searchPath } from "../../utils/ToolFunction";
 
 export const SourceRoomController = function (context: SourceRoomControllerContext) {
   const run = function (roomName: string): SRError {
@@ -22,32 +23,7 @@ export const SourceRoomController = function (context: SourceRoomControllerConte
       // init room
       let center = context.getFatherCenter();
       for (let source of room.source) {
-        let result = PathFinder.search(
-          center,
-          { pos: source.pos, range: 1 },
-          {
-            plainCost: 2,
-            swampCost: 2,
-            roomCallback(roomName: string): boolean | CostMatrix {
-              let room = Game.rooms[roomName];
-              if (!room) return false;
-              let costs = new PathFinder.CostMatrix();
-              room.find(FIND_STRUCTURES).forEach(function (struct) {
-                if (struct.structureType === STRUCTURE_ROAD) {
-                  // 相对于平原，寻路时将更倾向于道路
-                  costs.set(struct.pos.x, struct.pos.y, 1);
-                } else if (
-                  struct.structureType !== STRUCTURE_CONTAINER &&
-                  (struct.structureType !== STRUCTURE_RAMPART || !struct.my)
-                ) {
-                  // 不能穿过无法行走的建筑
-                  costs.set(struct.pos.x, struct.pos.y, 0xff);
-                }
-              });
-              return costs;
-            }
-          }
-        );
+        let result = searchPath(center, source.pos, 1);
         context.createConstructionSiteByPath(result.path);
       }
       memory.numSource = room.source.length;

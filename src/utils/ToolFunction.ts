@@ -20,6 +20,44 @@ export function lookRangeStructure(
   return null;
 }
 
+export function searchPath(from: RoomPosition, to: RoomPosition, range: number | undefined): PathFinderPath {
+  function roomCallback(roomName: string): boolean | CostMatrix {
+    let room = Game.rooms[roomName];
+    if (!room) return false;
+    let costs = new PathFinder.CostMatrix();
+    room.find(FIND_STRUCTURES).forEach(function (struct) {
+      if (struct.structureType === STRUCTURE_ROAD) {
+        // 相对于平原，寻路时将更倾向于道路
+        costs.set(struct.pos.x, struct.pos.y, 1);
+      } else if (
+        struct.structureType !== STRUCTURE_CONTAINER &&
+        (struct.structureType !== STRUCTURE_RAMPART || !struct.my)
+      ) {
+        // 不能穿过无法行走的建筑
+        costs.set(struct.pos.x, struct.pos.y, 0xff);
+      }
+    });
+    return costs;
+  }
+
+  if (range === undefined)
+    return PathFinder.search(from, to, {
+      plainCost: 2,
+      swampCost: 2,
+      roomCallback
+    });
+  else
+    return PathFinder.search(
+      from,
+      { pos: to, range: range },
+      {
+        plainCost: 2,
+        swampCost: 2,
+        roomCallback
+      }
+    );
+}
+
 //---------------Creep Action Error Message---------------//
 export function attackMsg(code: number): string {
   return `Unhandled attack error code ${code}`;
@@ -73,5 +111,4 @@ export function withdrawMsg(code: number): string {
 
 export function creepAtBoarder(pos: RoomPosition): boolean {
   return pos.x == 0 || pos.x == 49 || pos.y == 0 || pos.y == 49;
-
 }

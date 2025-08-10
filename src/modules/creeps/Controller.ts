@@ -1,7 +1,7 @@
 import { Creep_harvester } from "./Harvester";
 import { checkCreepMemory, checkCreepNum } from "./CreepChecker";
 import { Creep_upgrader } from "./Upgrader";
-import { CreepAPI, CreepType } from "./CreepAPI";
+import { CreepType, getCreepType } from "./CreepAPI";
 import { Creep_constructor } from "./Constructor";
 import { Creep_carrier } from "./Carrier";
 import { Creep_repairer } from "./Repairer";
@@ -10,7 +10,6 @@ import { err } from "../Message";
 import { Creep_reserver } from "./Reserver";
 import { Creep_sr_harvester } from "./SRHarvester";
 import { Creep_sr_carrier } from "./SRCarrier";
-import { Creep_sr_defender } from "./SRDefender";
 
 function error(message: string) {
   err(`[CREEP CONTROLLER] ${message}`);
@@ -27,8 +26,8 @@ export const CreepController = function (context: CreepControllerContext) {
     // get maintenancer queue
     for (let [name, creep] of Object.entries(Game.creeps)) {
       // use name to identify the creep's type
-      const config = CreepAPI.getCreepConfig(name, { getCreepType: true });
-      switch (config.creepType) {
+      const creepType = getCreepType(name);
+      switch (creepType) {
         case CreepType.HARVESTER:
           Creep_harvester.run(creep, room);
           break;
@@ -73,13 +72,10 @@ export const CreepController = function (context: CreepControllerContext) {
           Creep_reserver.run(creep, room, context.getSourceRooms);
           break;
         case CreepType.SRHARVESTER:
-          Creep_sr_harvester.run(creep, room, context.getSourceRooms);
+          Creep_sr_harvester.run(creep, room, context.getSourceRooms, context.hasInvader);
           break;
         case CreepType.SRCARRIER:
-          Creep_sr_carrier.run(creep, room, context.getSourceRooms);
-          break;
-        case CreepType.SRDEFENDER:
-          Creep_sr_defender.run(creep, room, context.getSourceRooms, context.setUpdateCreepFlag);
+          Creep_sr_carrier.run(creep, room, context.getSourceRooms, context.hasInvader);
           break;
         default:
           error(`Unhandled creep type: ${name}`);
@@ -87,7 +83,15 @@ export const CreepController = function (context: CreepControllerContext) {
     }
 
     // check creep num
-    if (context.getUpdateCreepFlag()) checkCreepNum(room, context.getCreeps, context.addCreeps, context.removeCreeps);
+    if (context.getUpdateCreepFlag())
+      checkCreepNum(
+        room,
+        context.getCreeps,
+        context.addCreeps,
+        context.removeCreeps,
+        context.getCreepNum,
+        context.nameInSpawnQueue
+      );
   };
 
   return { prerun, run };
@@ -112,4 +116,7 @@ interface CreepControllerContext {
   getCreeps(): string[];
   addCreeps(creepNames: string[]): void;
   removeCreeps(creepNames: string[]): void;
+  getCreepNum(creepType: CreepType): number;
+  nameInSpawnQueue(creepName: string): boolean;
+  hasInvader(roomName: string): boolean;
 }

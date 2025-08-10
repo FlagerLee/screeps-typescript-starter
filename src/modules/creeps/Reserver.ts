@@ -1,4 +1,3 @@
-import { CreepAPI } from "./CreepAPI";
 import { err } from "../Message";
 
 function error(message: string) {

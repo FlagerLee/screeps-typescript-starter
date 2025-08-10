@@ -1,4 +1,3 @@
-import { CreepAPI } from "./CreepAPI";
 import { err } from "../Message";
 import {
   creepAtBoarder,
@@ -29,7 +28,7 @@ function getSourceByIdx(sr: string[], idx: number): Source | null {
 }
 
 export const Creep_sr_carrier = {
-  run(creep: Creep, room: Room, getSourceRooms: () => string[]) {
+  run(creep: Creep, room: Room, getSourceRooms: () => string[], hasInvader: (roomName: string) => boolean) {
     if (creep.spawning) return;
 
     let memory = creep.memory;
@@ -60,9 +59,7 @@ export const Creep_sr_carrier = {
       error(`Cannot find source`);
       return;
     }
-    let outerRoom = container.room;
-    let outerRoomMemory = outerRoom.memory as unknown as SRMemory;
-    if (outerRoomMemory.hasInvader) memory.state = STATE.FLEE;
+    if (hasInvader(container.room.name)) memory.state = STATE.FLEE;
     else if (memory.state == STATE.FLEE) {
       if (creep.store.getFreeCapacity(RESOURCE_ENERGY) < 200) memory.state = STATE.CARRY;
       else memory.state = STATE.FETCH;

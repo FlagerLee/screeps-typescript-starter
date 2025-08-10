@@ -1,4 +1,3 @@
-import { CreepAPI } from "./CreepAPI";
 import { err, info } from "../Message";
 import { lookStructure } from "../../utils/ToolFunction";
 
@@ -28,14 +27,7 @@ export const Creep_carrier = {
     let state: STATE = memory.state;
     // check data
     if (!memory.data) {
-      if (state == STATE.IDLE) {
-        // init memory data
-        const config = CreepAPI.getCreepConfig(creep.name, { getCreepMemoryData: true });
-        creep.memory.data = config.creepMemoryData;
-      } else {
-        creep.say("No data");
-        error(`Carrier ${creep.name} data not found`);
-      }
+      creep.memory.data = { task: null } as Carrier_data;
     }
     let data = memory.data as Carrier_data;
 

@@ -1,5 +1,4 @@
 import { err, info } from "../Message";
-import { CreepAPI } from "./CreepAPI";
 
 function error(message: string) {
   err(`[REPAIRER] ${message}`);
@@ -26,14 +25,10 @@ export const Creep_repairer = {
     let state: STATE = memory.state;
     // check data
     if (!memory.data) {
-      if (state == STATE.IDLE) {
-        // init memory data
-        const config = CreepAPI.getCreepConfig(creep.name, { getCreepMemoryData: true });
-        creep.memory.data = config.creepMemoryData;
-      } else {
-        creep.say("No data");
-        error(`Repairer ${creep.name} data not found`);
-      }
+      memory.data = {
+        task: null,
+        stop: 0
+      } as Repairer_data;
     }
     let data = memory.data as Repairer_data;
     if (!data.stop) data.stop = 0;
