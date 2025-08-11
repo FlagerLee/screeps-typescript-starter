@@ -1,24 +1,74 @@
-interface RoomMemory {
-  Debug: boolean;
-  // structure memory
-  tm: { [id: string]: TowerMemory };
+//*****************************************************//
+//                User Structure Memories
+//*****************************************************//
+interface TowerMemory {
+  rt: RepairTask | null;
+}
+interface ContainerMemory {
+  role: string;
+}
+interface UserStructureMemories {
+  towerMemories: {[id: string]: TowerMemory};
+  containerMemories: {[id: string]: ContainerMemory};
+}
 
-  caq: CarryTask[]; // carry task queue
-  cis: string[]; // carry task id set
-  rq: RepairTask[]; // repair task queue
-  erq: RepairTask[]; // emergency repair task
-  ris: string[]; // repair task id set
-  eris: string[]; // emergency repair task id set
-  cq: ConstructTask[]; // construction queue
-  sq: SpawnTask[]; // spawn queue
-  fb: boolean; // creep config fallback
-  fbc: number; // fallback cost
-  sr: string[]; // source rooms(外矿房)
+//*****************************************************//
+//                Game Structure Memories
+//*****************************************************//
+interface SourceMemory {
+  container: string | null;
+  link: string | null;
+}
+interface GameStructureMemories {
+  sourceMemories: {[id: string]: SourceMemory};
+}
+
+//*****************************************************//
+//                  Task Queue Memory
+//*****************************************************//
+interface CarryTaskQueue {
+  taskQueue: CarryTask[];
+  idSet: string[];
+}
+interface RepairTaskQueue {
+  taskQueue: RepairTask[];
+  idSet: string[];
+}
+interface ConstructionTaskQueue {
+  taskQueue: ConstructTask[];
+}
+interface SpawnTaskQueue {
+  taskQueue: SpawnTask[];
+}
+interface TaskMemories {
+  carryTasks: CarryTaskQueue;
+  repairTasks: RepairTaskQueue;
+  emergencyRepairTasks: RepairTaskQueue;
+  constructionTasks: ConstructionTaskQueue;
+  spawnTasks: SpawnTaskQueue;
+}
+
+//*****************************************************//
+//                        Flags
+//*****************************************************//
+interface Flags {
+  creepUpdateFlag: boolean;
+  creepUpdateTime: number;
+
+  stopFlag: boolean;  // stop executing this room
+  memoryUpdateFlag: boolean;  // if set, convert old memory to new memory
+
+  level: number;
+}
+
+interface RoomMemory {
+  userStructureMemories: UserStructureMemories;
+  gameStructureMemories: GameStructureMemories;
+  tasks: TaskMemories;
+  flags: Flags;
+  sourceRooms: string[];
   creeps: string[];
-  center: { x: number; y: number };
-  lv: number; // controller level(used to check controller upgrade)
-  lastCreepCheck: number; // ticks since last creep check
-  creepConfigUpdate: boolean; // creep config update flag
+  center: RoomPosition;
 }
 
 interface SRMemory {
@@ -28,13 +78,4 @@ interface SRMemory {
   ready: boolean; // room is ready to harvest(when containers are built)
   hasInvader: boolean;
   hasDefender: boolean;
-}
-
-interface TowerMemory {
-  rt: RepairTask | null;
-}
-
-interface SourceMemory {
-  container: string | null;
-  link: string | null;
 }

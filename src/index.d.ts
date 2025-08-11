@@ -57,12 +57,6 @@ interface SpawnTask {
 }
 // TASK QUEUE && TASK SET
 
-interface FallBackData {
-  fb: boolean; // fallback flag
-  fbc: number; // fallback cost
-  t: number; // fallback timer(used for harvester)
-}
-
 
 
 interface CreepMemory {

@@ -1,5 +1,4 @@
 import { CreepController } from "./creeps/Controller";
-// import { SpawnController } from "./Spawn";
 import { StructuresController } from "./structures/StructuresController";
 import { RoomMemoryController } from "./memory/RoomMemory";
 import { DefenseController } from "./defense/Controller";
@@ -9,15 +8,15 @@ import { err } from "./Message";
 import { Mood, MoodController } from "./mood/Controller";
 import { SourceRoomMemoryController } from "./memory/SourceRoomMemory";
 import { CreepType, getCreepType } from "./creeps/CreepAPI";
+import { transferMemory } from "./memory/TransferMemory";
 
 export const MainController = {
   run(): void {
     const rooms = _.filter(Game.rooms, room => room.controller && room.controller.my);
     for (const room of rooms) {
-      this.checkAndInitRoom(room);
-      if (room.memory.Debug) continue;
       // create controller
       const roomMemoryController = RoomMemoryController({ room: room });
+      roomMemoryController.initMemory();
       const sourceRoomMemoryController = SourceRoomMemoryController({
         sourceRoomNames: roomMemoryController.getSourceRooms()
       });
@@ -153,32 +152,6 @@ export const MainController = {
       // postrun
       roomMemoryController.postRun();
       structureController.postRun();
-    }
-  },
-
-  checkAndInitRoom(room: Room): void {
-    if (room.memory.Debug == undefined) {
-      const spawnPos = room.spawn[0].pos;
-      Memory.rooms[room.name] = {
-        Debug: false,
-        tm: {},
-        creeps: [],
-        caq: [],
-        cis: [],
-        rq: [],
-        erq: [],
-        ris: [],
-        eris: [],
-        cq: [],
-        sq: [],
-        fb: false,
-        fbc: -1,
-        sr: [],
-        center: { x: spawnPos.x - 1, y: spawnPos.y },
-        lv: 0,
-        lastCreepCheck: 0,
-        creepConfigUpdate: true
-      };
     }
   },
 
