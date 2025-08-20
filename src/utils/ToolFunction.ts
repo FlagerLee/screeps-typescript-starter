@@ -20,6 +20,10 @@ export function lookRangeStructure(
   return null;
 }
 
+export function chebyshevDistance(pos1: RoomPosition, pos2: RoomPosition) {
+  return Math.max(Math.abs(pos1.x - pos2.x), Math.abs(pos1.y - pos2.y));
+}
+
 export function searchPath(from: RoomPosition, to: RoomPosition, range: number | undefined): PathFinderPath {
   function roomCallback(roomName: string): boolean | CostMatrix {
     let room = Game.rooms[roomName];

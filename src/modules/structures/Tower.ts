@@ -1,4 +1,5 @@
 import { err, warn } from "../Message";
+import { TRANSFER_PRIORITY_TOWER } from "../Constants";
 
 function error(message: string) {
   err(`[TOWER] ${message}`);
@@ -7,17 +8,21 @@ function error(message: string) {
 export const STower = {
   run(
     tower: StructureTower,
-    addCarryTask: (task: CarryTask) => void,
+    addTransferTask: (task: TransferTask) => void,
     getAttackTarget: () => AnyCreep | Structure | null,
     fetchEmergencyRepairTask: () => RepairTask | null,
     finishEmergencyRepairTask: (task: RepairTask) => void,
     getTowerMemory: (id: string) => TowerMemory
   ) {
     // carry task
-    if (tower.store.energy * 2 < tower.store.getCapacity(RESOURCE_ENERGY))
-      addCarryTask({
-        tgt: tower.id,
-        rt: RESOURCE_ENERGY
+    if (tower.store.getFreeCapacity(RESOURCE_ENERGY) >= 100)
+      addTransferTask({
+        position: { x: tower.pos.x, y: tower.pos.y },
+        target: tower.id,
+        resourceType: RESOURCE_ENERGY,
+        priority: TRANSFER_PRIORITY_TOWER,
+        resourceNum: tower.store.getFreeCapacity(RESOURCE_ENERGY),
+        reservedNum: 0
       });
     // init memory
     let memory = getTowerMemory(tower.id);

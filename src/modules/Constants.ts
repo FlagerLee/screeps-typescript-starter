@@ -1,1 +1,8 @@
 export const CREEP_CHECK_DURATION = 1000;
+
+// Transfer task priority
+export const TRANSFER_PRIORITY_SPAWN = 120;
+export const TRANSFER_PRIORITY_EXTENSION = 100;
+export const TRANSFER_PRIORITY_TOWER = 80;
+export const TRANSFER_PRIORITY_CONTROLLER_CONTAINER = 20;
+

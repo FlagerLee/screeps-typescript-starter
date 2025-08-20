@@ -1,4 +1,4 @@
-import { BunkerLayout, checkInsideLayout} from "./bunkerLayout";
+import { BunkerLayout, checkInsideLayout} from "./BunkerLayout";
 import { VisualBuilding } from "./visual";
 
 export const LayoutController = function (context: LayoutControllerContext) {

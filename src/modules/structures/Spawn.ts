@@ -1,20 +1,24 @@
 import { err } from "../Message";
+import { TRANSFER_PRIORITY_SPAWN } from "../Constants";
 
 export const SSpawn = {
   run(
     spawn: StructureSpawn,
-    addCarryTask: (task: CarryTask) => void,
+    addTransferTask: (task: TransferTask) => void,
     fetchSpawnTask: () => SpawnTask | null,
     returnSpawnTask: (task: SpawnTask) => void,
     getCreepBody: (creepName: string) => BodyPartConstant[]
   ) {
     // check energy
     if (spawn.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
-      // create carry task
-      addCarryTask({
-        tgt: spawn.id,
-        rt: RESOURCE_ENERGY
-      });
+      addTransferTask({
+        position: {x: spawn.pos.x, y: spawn.pos.y},
+        target: spawn.id,
+        resourceType: RESOURCE_ENERGY,
+        priority: TRANSFER_PRIORITY_SPAWN,
+        resourceNum: spawn.store.getFreeCapacity(RESOURCE_ENERGY),
+        reservedNum: 0
+      })
 
     if (spawn.spawning) return;
     // check spawning

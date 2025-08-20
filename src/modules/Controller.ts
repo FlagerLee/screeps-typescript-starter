@@ -61,7 +61,10 @@ export const MainController = {
         fetchSpawnTask: roomMemoryController.fetchSpawnTask,
         returnSpawnTask: roomMemoryController.returnSpawnTask,
         addConstructTask: roomMemoryController.addConstructTask,
-        getCreepBody: (creepName: string) => moodController.getCreepConfig(creepName)![0]
+        getCreepBody: (creepName: string) => moodController.getCreepConfig(creepName)![0],
+        getContainerMemory: roomMemoryController.getContainerMemory,
+        setContainerMemory: roomMemoryController.setContainerMemory,
+        addTransferTask: roomMemoryController.addTransferTask,
       });
       const sourceRoomController = SourceRoomController({
         getFatherCenter: (): RoomPosition => {

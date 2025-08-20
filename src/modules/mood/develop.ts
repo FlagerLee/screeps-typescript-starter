@@ -72,7 +72,7 @@ function getCarrierConfig(room: Room, remainEnergy: number): [BodyPartConstant[]
 }
 function getCarrierNum(room: Room, getNumConstructionSite: () => number): number {
   if (room.controller!.level == 1 && getNumConstructionSite() > 0) return 0;
-  return 1;
+  return 3;
 }
 
 //*****************************************************//
@@ -103,12 +103,13 @@ function getCCarrierConfig(room: Room, remainEnergy: number, carrierAlive: boole
   return CCARRIER_BODY[index];
 }
 function getCCarrierNum(room: Room, getNumConstructionSite: () => number): number {
-  if (room.controller!.level == 1 && getNumConstructionSite() > 0) return 0;
-  // TODO: disable ccarrier after the link logic is finished
-  let numSources = room.source.length;
-  if (room.name == "sim") numSources = 2;
-  if (room.extension.length < 20) return numSources * 2;
-  return numSources;
+  return 0;
+  // if (room.controller!.level == 1 && getNumConstructionSite() > 0) return 0;
+  // // TODO: disable ccarrier after the link logic is finished
+  // let numSources = room.source.length;
+  // if (room.name == "sim") numSources = 2;
+  // if (room.extension.length < 20) return numSources * 2;
+  // return numSources;
 }
 
 //*****************************************************//

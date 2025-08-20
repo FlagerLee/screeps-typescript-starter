@@ -37,13 +37,17 @@ interface Room {
   resetQueue: () => void;
 }
 
-// TASK
+//*****************************************************//
+//                        Tasks
+//*****************************************************//
 interface ConstructTask {
   tgt: string;
 }
 interface CarryTask {
-  tgt: string; // target id
-  rt: ResourceConstant; // resource type.
+  source: Id<Structure> | Id<Tombstone> | Id<Resource>;
+  target: Id<Structure>; // target id
+  resourceType: ResourceConstant; // resource type.
+  mustFetch: boolean;
 }
 interface RepairTask {
   tgt: string; // target id.
@@ -55,6 +59,22 @@ interface SpawnTask {
   type: number; // creep type
   spawn: string | null; // select specific spawn
 }
+interface TransferTask {
+  position: {x: number, y: number};
+  target: Id<Structure>;
+  resourceType: ResourceConstant;
+  priority: number;
+  resourceNum: number;
+  reservedNum: number;
+}
+interface WithdrawTask {
+  position: {x: number, y: number};
+  target: Id<Structure>;
+  resourceType: ResourceConstant;
+}
+interface PickupTask {
+
+}
 // TASK QUEUE && TASK SET
 
 
@@ -63,49 +83,6 @@ interface CreepMemory {
   state: number;
   no_pull: boolean;
   data?: object;
-}
-
-
-interface CarryTaskStruct {
-  Queue: CarryTask[];
-  Set: string[];
-}
-interface RepairTaskStruct {
-  Queue: RepairTask[];
-  Set: string[];
-}
-interface EmergencyRepairTaskStruct {
-  Queue: RepairTask[];
-  Set: string[];
-}
-interface SpawnTaskStruct {
-  Queue: SpawnTask[];
-}
-interface ConstructTaskStruct {
-  Queue: ConstructTask[];
-}
-interface Tasks {
-  CarryTask: CarryTaskStruct;
-  RepairTask: RepairTaskStruct;
-  EmergencyRepairTask: EmergencyRepairTaskStruct;
-  SpawnTask: SpawnTaskStruct;
-  ConstructTask: ConstructTaskStruct;
-}
-interface CreepUpdateStruct {
-  lastCreepCheck: number;
-  creepConfigUpdate: boolean;
-}
-interface NewRoomMemory {
-  // debug tag. if Debug is set to true, all the logic in this room will be stopped
-  Debug: boolean;
-
-  // tasks
-  Tasks: Tasks;
-  // outer source rooms
-  SourceRooms: string[];
-  // creep update
-  UpdateCreep: CreepUpdateStruct;
-
 }
 
 interface SpawnConfig {

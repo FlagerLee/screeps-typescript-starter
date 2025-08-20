@@ -1,7 +1,7 @@
 import { SController } from "./Controller";
 import { SSpawn } from "./Spawn";
 import { SContainer } from "./Container";
-import { SRoad } from "./road";
+import { SRoad } from "./Road";
 import { SExtension } from "./Extension";
 import { STower } from "./Tower";
 import { SRampart } from "./Rampart";
@@ -34,12 +34,22 @@ export const StructuresController = function (context: StructureControllerContex
       });
     for (const spawn of room.spawn) {
       handleError(STRUCTURE_SPAWN, () => {
-        SSpawn.run(spawn, context.addCarryTask, context.fetchSpawnTask, context.returnSpawnTask, context.getCreepBody);
+        SSpawn.run(spawn, context.addTransferTask, context.fetchSpawnTask, context.returnSpawnTask, context.getCreepBody);
       });
     }
     for (const container of room.container) {
       handleError(STRUCTURE_CONTAINER, () => {
-        SContainer.run(container, context.addRepairTask, context.addEmergencyRepairTask);
+        SContainer.run(
+          container,
+          context.addRepairTask,
+          context.addEmergencyRepairTask,
+          context.addCarryTask,
+          context.addTransferTask,
+          context.getCenter,
+          getCenterContainer,
+          context.getContainerMemory,
+          context.setContainerMemory,
+        );
       });
     }
     for (const road of room.road) {
@@ -49,14 +59,14 @@ export const StructuresController = function (context: StructureControllerContex
     }
     for (const extension of room.extension) {
       handleError(STRUCTURE_EXTENSION, () => {
-        SExtension.run(extension, context.addCarryTask);
+        SExtension.run(extension, context.addTransferTask);
       });
     }
     for (const tower of room.tower) {
       handleError(STRUCTURE_TOWER, () => {
         STower.run(
           tower,
-          context.addCarryTask,
+          context.addTransferTask,
           context.getAttackTarget,
           context.fetchEmergencyRepairTask,
           context.finishEmergencyRepairTask,
@@ -96,6 +106,10 @@ export const StructuresController = function (context: StructureControllerContex
     return creep.transfer(c, type);
   };
 
+  //*****************************************************//
+  //             Container Energy Reservation
+  //*****************************************************//
+
   return { run, getCenterContainer, transferToCenterContainer, postRun };
 };
 
@@ -118,4 +132,7 @@ interface StructureControllerContext {
   returnSpawnTask: (task: SpawnTask) => void;
   addConstructTask: (task: ConstructTask) => void;
   getCreepBody: (creepName: string) => BodyPartConstant[];
+  getContainerMemory: (id: Id<StructureContainer>) => ContainerMemory | undefined;
+  setContainerMemory: (id: Id<StructureContainer>, memory: ContainerMemory) => void;
+  addTransferTask: (task: TransferTask) => void;
 }

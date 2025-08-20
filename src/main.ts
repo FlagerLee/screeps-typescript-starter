@@ -25,6 +25,10 @@ declare global {
   }
 }
 
+function isOfficialShard() {
+  return !!Game.cpu.generatePixel;
+}
+
 // When compiling TS to JS and bundling with rollup, the line numbers and file names in error messages change
 // This utility uses source maps to get the line numbers and file names of the original, TS source code
 
@@ -34,7 +38,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   const consoleFunction = require("console.function");
   if (Game.time % 1000 == 0) info(`Current game tick is ${Game.time}`);
 
-  if (Game.cpu.bucket == 10000) Game.cpu.generatePixel();
+  if (Game.cpu.bucket == 10000 && isOfficialShard()) Game.cpu.generatePixel();
 
   MainController.checkAndInit();
   // showBunkerLayout('sim');

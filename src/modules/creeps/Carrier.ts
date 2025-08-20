@@ -8,18 +8,17 @@ function error(message: string) {
 export const Creep_carrier = {
   run(
     creep: Creep,
-    room: Room,
-    fetchCarryTask: () => CarryTask | null,
-    returnCarryTask: (task: CarryTask) => void,
-    finishCarryTask: (task: CarryTask) => void,
-    getCenterContainer: () => StructureContainer | StructureStorage | null
+    fetchTransferTask: (capacity: number) => TransferTask | null,
+    finishTransferTask: (task: TransferTask) => void,
+    returnTransferTask: (task: TransferTask) => void,
+    getEnergySources: () => { id: Id<Structure>; pos: { x: number; y: number } }[]
   ): void {
     if (creep.spawning) return;
     // if creep will die soon, return task
     let memory = creep.memory;
     if (creep.ticksToLive! < 2) {
       let task = (memory.data as Carrier_data).task;
-      if (task) returnCarryTask(task);
+      if (task) returnTransferTask(task);
       creep.suicide();
       return;
     }
@@ -32,10 +31,10 @@ export const Creep_carrier = {
     let data = memory.data as Carrier_data;
 
     if (state == STATE.IDLE) {
-      let task = fetchCarryTask();
+      let task = fetchTransferTask(creep.store.getCapacity());
       if (!task) return;
       data.task = task;
-      if (creep.store.getUsedCapacity(task.rt) == 0) {
+      if (creep.store.getUsedCapacity(task.resourceType) < task.reservedNum) {
         creep.memory.state = STATE.FETCH;
         state = STATE.FETCH;
       } else {
@@ -45,35 +44,34 @@ export const Creep_carrier = {
     }
     if (state == STATE.FETCH) {
       let task = data.task!;
-      function withdraw(structure: Structure): void {
-        const result = creep.withdraw(structure, task.rt);
+      let target = Game.getObjectById(task.source);
+      if (!target) {
+        creep.memory.state = STATE.IDLE;
+        return;
+      }
+      function processResult(result: ScreepsReturnCode, pos: RoomPosition, functionName: string): void {
         switch (result) {
           case ERR_FULL:
           case OK:
             creep.memory.state = STATE.WORK;
             break;
           case ERR_NOT_IN_RANGE:
-            creep.moveTo(structure.pos);
+            creep.moveTo(pos);
             break;
           case ERR_NOT_ENOUGH_RESOURCES:
             creep.say("No resource");
             break;
           default:
-            error(`Unhandled withdraw error code: ${result}`);
+            error(`Unhandled ${functionName} error code: ${result}`);
         }
       }
-      // storage exists or not has huge difference
-      let container = getCenterContainer();
-      if (!container) {
-        error(`Cannot find center container`);
-        return;
-      }
-      withdraw(container);
+      if (target instanceof Resource) processResult(creep.pickup(target), target.pos, "pickup");
+      else processResult(creep.withdraw(target, task.resourceType), target.pos, "withdraw");
     }
     if (state == STATE.WORK) {
       let task = data.task!;
       function transfer(structure: Structure): void {
-        const result = creep.transfer(structure, task.rt);
+        const result = creep.transfer(structure, task.resourceType);
         switch (result) {
           case OK:
           case ERR_FULL:
@@ -91,15 +89,15 @@ export const Creep_carrier = {
             error(`Unhandled transfer error code: ${result}`);
         }
       }
-      let structure = Game.getObjectById(task.tgt as Id<Structure>);
+      let structure = Game.getObjectById(task.target);
       if (structure) transfer(structure);
-      else error(`Cannot find structure ${task.tgt}`);
+      else error(`Cannot find structure ${task.target}`);
     }
   }
 };
 
 interface Carrier_data {
-  task: CarryTask | null;
+  task: TransferTask | WithdrawTask | null;
 }
 
 enum STATE {

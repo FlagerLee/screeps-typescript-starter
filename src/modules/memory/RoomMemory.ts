@@ -1,6 +1,8 @@
-import {err, warn} from "../Message";
+import { err, warn } from "../Message";
 import PriorityQueue from "../../utils/PriorityQueue";
 import { CREEP_CHECK_DURATION } from "../Constants";
+import { cloneDeep } from "lodash";
+import { CONTAINER_ROLE } from "./definition";
 
 function error(message: string) {
   err(`[CONSTRUCTOR] ${message}`);
@@ -16,7 +18,6 @@ function repairTaskPriority(task1: RepairTask, task2: RepairTask): boolean {
   return score(task1) > score(task2);
 }
 
-
 export const RoomMemoryController = function (context: RoomMemoryControllerContext) {
   //*****************************************************//
   //             Member Variables Definition
@@ -26,12 +27,14 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
   let carryIdSet: Set<string> | undefined = undefined;
   let repairIdSet: Set<string> | undefined = undefined;
   let emergencyRepairIdSet: Set<string> | undefined = undefined;
+  let transferIdSet: Set<string> | undefined = undefined;
 
   // Task Queues
   let carryQueue: PriorityQueue<CarryTask> | undefined = undefined;
   let repairQueue: PriorityQueue<RepairTask> | undefined = undefined;
   let emergencyRepairQueue: PriorityQueue<RepairTask> | undefined = undefined;
   let spawnQueue: PriorityQueue<SpawnTask> | undefined = undefined;
+  let transferQueue: PriorityQueue<TransferTask> | undefined = undefined;
 
   // Source Room Memories
 
@@ -40,18 +43,20 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
   //*****************************************************//
   function initMemory(): void {
     if (context.room.memory.flags) return;
-    let sourceMemories: {[id: string]: SourceMemory} = {};
-    for (const source of context.room.source) sourceMemories[source.id] = {container: null, link: null}
+    console.log("INIT");
+    let sourceMemories: { [id: string]: SourceMemory } = {};
+    for (const source of context.room.source) sourceMemories[source.id] = { container: null, link: null };
     // @ts-ignore
     Memory.rooms[context.room.name] = {
-      userStructureMemories: {towerMemories: {}, containerMemories: {}},
-      gameStructureMemories: {sourceMemories: sourceMemories},
+      userStructureMemories: { towerMemories: {}, containerMemories: {} },
+      gameStructureMemories: { sourceMemories: sourceMemories },
       tasks: {
-        carryTasks: {taskQueue: [], idSet: []},
-        repairTasks: {taskQueue: [], idSet: []},
-        emergencyRepairTasks: {taskQueue: [], idSet: []},
-        constructionTasks: {taskQueue: []},
-        spawnTasks: {taskQueue: []}
+        carryTasks: { taskQueue: [], idSet: [] },
+        repairTasks: { taskQueue: [], idSet: [] },
+        emergencyRepairTasks: { taskQueue: [], idSet: [] },
+        constructionTasks: { taskQueue: [] },
+        spawnTasks: { taskQueue: [] },
+        transferTasks: { tasks: {} }
       },
       flags: {
         creepUpdateFlag: true,
@@ -62,7 +67,28 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
       },
       sourceRooms: [],
       creeps: [],
-      center: context.room.spawn[0].pos
+      center: {
+        x: context.room.spawn[0].pos.x - 1,
+        y: context.room.spawn[0].pos.y
+      },
+      dist: {}
+    };
+  }
+
+  //*****************************************************//
+  //          Transfer Task Initialize Function
+  //*****************************************************//
+  function initTransferTask(memory: RoomMemory) {
+    function transferTaskPriority(task1: TransferTask, task2: TransferTask): boolean {
+      if (task1.resourceNum - task1.reservedNum == 0) return true; // task2 has more priority
+      if (task2.resourceNum - task2.reservedNum == 0) return false; // task1 has more priority
+      return task1.priority < task2.priority;
+    }
+    transferQueue = new PriorityQueue<TransferTask>(transferTaskPriority);
+    transferIdSet = new Set<string>();
+    for (let id in memory.tasks.transferTasks.tasks) {
+      transferIdSet.add(id);
+      transferQueue.push(memory.tasks.transferTasks.tasks[id]);
     }
   }
 
@@ -96,17 +122,18 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
 
   function initCarryQueue(memory: RoomMemory) {
     function carryTaskPriority(task1: CarryTask, task2: CarryTask): boolean {
-      let structure1 = Game.getObjectById(task1.tgt as Id<Structure>);
-      let structure2 = Game.getObjectById(task2.tgt as Id<Structure>);
+      let structure1 = Game.getObjectById(task1.target);
+      let structure2 = Game.getObjectById(task2.target);
       if (!structure1 || !structure2) return true;
       let st1 = structure1.structureType;
       let st2 = structure2.structureType;
 
       function ty(st: StructureConstant) {
         if (st === STRUCTURE_SPAWN) return 10;
-        if (st === STRUCTURE_TOWER) return 9;
-        if (st === STRUCTURE_EXTENSION) return 8;
-        return 7;
+        if (st === STRUCTURE_EXTENSION) return 9;
+        if (st === STRUCTURE_TOWER) return 8;
+        if (st === STRUCTURE_STORAGE || st === STRUCTURE_CONTAINER) return 7;
+        return 6;
       }
 
       if (st1 !== st2) return ty(st1) > ty(st2);
@@ -150,11 +177,10 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
     if (flags.creepUpdateFlag) {
       flags.creepUpdateFlag = false;
       flags.creepUpdateTime = 0;
-    }
-    else {
+    } else {
       if (flags.creepUpdateTime >= CREEP_CHECK_DURATION) {
         flags.creepUpdateFlag = true;
-      } else flags.creepUpdateTime ++;
+      } else flags.creepUpdateTime++;
     }
 
     let tasks = memory.tasks;
@@ -211,13 +237,61 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
   };
 
   //*****************************************************//
+  //          Transfer Task Management Function
+  //*****************************************************//
+  function genTransferTaskId(task: TransferTask) {
+    return `${task.target}|${task.resourceType}`;
+  }
+  const addTransferTask = function (task: TransferTask) {
+    if (!transferIdSet) initTransferTask(context.room.memory);
+    transferIdSet = transferIdSet!;
+    const id = genTransferTaskId(task);
+    if (!transferIdSet.has(id)) {
+      context.room.memory.tasks.transferTasks.tasks[id] = task;
+      transferIdSet.add(id);
+      transferQueue!.push(task);
+    } else {
+      context.room.memory.tasks.transferTasks.tasks[id].resourceNum = task.resourceNum;
+    }
+  };
+  const fetchTransferTask = function (capacity: number): TransferTask | null {
+    if (!transferIdSet) initTransferTask(context.room.memory);
+    if (transferQueue!.empty()) return null;
+    let task = transferQueue!.poll();
+    if (task.resourceNum - task.reservedNum <= 0) return null;
+    let retTask = cloneDeep(task);
+    if (task.resourceNum - task.reservedNum > capacity) retTask.reservedNum = capacity;
+    else retTask.reservedNum = task.resourceNum - task.reservedNum;
+    task.reservedNum += retTask.reservedNum;
+    transferQueue!.push(task);
+    return task;
+  };
+  const finishTransferTask = function (task: TransferTask) {
+    let origTask = context.room.memory.tasks.transferTasks.tasks[task.target];
+    origTask.resourceNum -= task.reservedNum;
+    if (origTask.resourceNum <= 0) {
+      delete context.room.memory.tasks.transferTasks.tasks[task.target];
+      return;
+    }
+    origTask.reservedNum -= task.reservedNum;
+  };
+  const returnTransferTask = function (task: TransferTask) {
+    let origTask = context.room.memory.tasks.transferTasks.tasks[task.target];
+    origTask.reservedNum -= task.reservedNum;
+  };
+
+  //*****************************************************//
   //           Carry Task Management Function
   //*****************************************************//
+  function genCarryId(task: CarryTask) {
+    return `${task.source.substring(0, 8)}|${task.target.substring(0, 8)}|${task.resourceType}`;
+  }
   const addCarryTask = function (task: CarryTask) {
     if (!carryIdSet) initCarryIdSet(context.room.memory);
     carryIdSet = carryIdSet!;
-    if (!carryIdSet.has(task.tgt)) {
-      carryIdSet.add(task.tgt);
+    const id = genCarryId(task);
+    if (!carryIdSet.has(id)) {
+      carryIdSet.add(id);
       if (!carryQueue) initCarryQueue(context.room.memory);
       carryQueue!.push(task);
     }
@@ -226,7 +300,7 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
   const finishCarryTask = function (task: CarryTask) {
     if (!carryIdSet) initCarryIdSet(context.room.memory);
     carryIdSet = carryIdSet!;
-    carryIdSet.delete(task.tgt);
+    carryIdSet.delete(genCarryId(task));
   };
 
   const fetchCarryTask = function (): CarryTask | null {
@@ -277,7 +351,7 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
 
   const getRepairTaskNum = function (): number {
     return context.room.memory.tasks.repairTasks.taskQueue.length;
-  }
+  };
 
   //*****************************************************//
   //      Emergency Repair Task Management Function
@@ -370,7 +444,7 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
 
   const getConstructTaskNum = function (): number {
     return context.room.memory.tasks.constructionTasks.taskQueue.length;
-  }
+  };
 
   //*****************************************************//
   //           Spawn Task Management Function
@@ -403,7 +477,7 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
 
   const getUpdateCreepFlag = function (): boolean {
     return context.room.memory.flags.creepUpdateFlag;
-  }
+  };
 
   //*****************************************************//
   //                Level Flag Management
@@ -425,14 +499,14 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
     return context.room.memory.creeps;
   };
 
-  const addCreeps = function(creepNames: string[]) {
+  const addCreeps = function (creepNames: string[]) {
     let creeps = context.room.memory.creeps;
     for (let creepName of creepNames) {
       if (!creeps.includes(creepName)) creeps.push(creepName);
     }
-  }
+  };
 
-  const removeCreeps = function(creepNames: string[]) {
+  const removeCreeps = function (creepNames: string[]) {
     let creeps = context.room.memory.creeps;
     for (let creepName of creepNames) {
       let index = creeps.indexOf(creepName);
@@ -440,14 +514,26 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
         creeps.splice(index, 1);
       }
     }
-  }
+  };
+
+  //*****************************************************//
+  //                Structures Management
+  //*****************************************************//
+  const getContainerMemory = function (id: Id<StructureContainer>): ContainerMemory | undefined {
+    return context.room.memory.userStructureMemories.containerMemories[id];
+  };
+  const setContainerMemory = function (id: Id<StructureContainer>, memory: ContainerMemory) {
+    context.room.memory.userStructureMemories.containerMemories[id] = memory;
+  };
 
   //*****************************************************//
   //                    Miscellaneous
   //*****************************************************//
-
+  let center: RoomPosition | undefined = undefined;
   const getCenter = function (): RoomPosition {
-    return context.room.memory.center;
+    if (!center)
+      center = new RoomPosition(context.room.memory.center.x, context.room.memory.center.y, context.room.name);
+    return center;
   };
 
   const getTowerMemory = function (id: string): TowerMemory {
@@ -460,14 +546,33 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
     return memory;
   };
 
-  const nameInSpawnQueue = function(name: string): boolean {
-    for (const task of context.room.memory.tasks.spawnTasks.taskQueue)
-      if (name === task.name) return true;
+  const nameInSpawnQueue = function (name: string): boolean {
+    for (const task of context.room.memory.tasks.spawnTasks.taskQueue) if (name === task.name) return true;
     return false;
-  }
+  };
 
   const getSourceRooms = function (): string[] {
     return context.room.memory.sourceRooms;
+  };
+
+  const getEnergySources = function (): { id: Id<Structure>; pos: { x: number; y: number } }[] {
+    let sources: { id: Id<Structure>; pos: { x: number; y: number } }[] = [];
+    if (context.room.storage) sources.push({
+      id: context.room.storage.id,
+      pos: {x: context.room.storage.pos.x, y: context.room.storage.pos.y}
+    });
+    const level = context.room.memory.flags.level;
+    if (level < 7) {
+      // TODO: when level == 6, check which source container has link
+      let containerMemory = context.room.memory.userStructureMemories.containerMemories;
+      for (const id in containerMemory) {
+        if (containerMemory[id].role == CONTAINER_ROLE.CONTAINER_SOURCE) sources.push({
+          id: id as Id<Structure>,
+          pos: containerMemory[id].position
+        });
+      }
+    }
+    return sources;
   };
 
   return {
@@ -504,7 +609,19 @@ export const RoomMemoryController = function (context: RoomMemoryControllerConte
     removeCreeps,
     getCreeps,
     getSourceRooms,
-    nameInSpawnQueue
+    nameInSpawnQueue,
+
+    getContainerMemory,
+    setContainerMemory,
+
+    // Transfer Task
+    addTransferTask,
+    fetchTransferTask,
+    returnTransferTask,
+    finishTransferTask,
+
+    // Miscellaneous
+    getEnergySources
   };
 };
 
